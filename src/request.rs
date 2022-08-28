@@ -298,7 +298,7 @@ Upload
 use rustdb::Part;
 
 /// Parse multipart body.
-async fn get_multipart<R>(br: &mut tokio::io::BufReader<R>, result: &mut Vec<Part>) -> Result<()>
+async fn get_multipart<R>(br: &mut tokio::io::BufReader<R>, parts: &mut Vec<Part>) -> Result<()>
 where
     R: AsyncReadExt + Unpin + Send,
 {
@@ -348,8 +348,7 @@ where
             }
         }
         part.data = Arc::new(data);
-        // Append part to result.
-        result.push(part);
+        parts.push(part);
     }
     Ok(())
 }
