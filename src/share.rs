@@ -91,6 +91,12 @@ impl ServerTrans {
     }
 }
 
+impl Default for ServerTrans {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Message to server task, includes oneshot Sender for reply.
 pub struct ServerMessage {
     pub st: ServerTrans,

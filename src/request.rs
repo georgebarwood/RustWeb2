@@ -1,9 +1,9 @@
 use crate::share::{ServerTrans, SharedState};
+use crate::Result;
 use std::collections::BTreeMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use crate::Result;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 
 /// Process http requests.
 pub async fn process(mut socket: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
@@ -76,8 +76,6 @@ fn header(st: &ServerTrans) -> Vec<u8> {
 }
 
 // Header parsing.
-
-use tokio::io::AsyncBufReadExt;
 
 #[derive(Default, Debug)]
 struct Headers {
@@ -300,10 +298,7 @@ Upload
 use rustdb::Part;
 
 /// Parse mulitpart body.
-async fn get_multipart<R>(
-    br: &mut tokio::io::BufReader<R>,
-    result: &mut Vec<Part>,
-) -> Result<()>
+async fn get_multipart<R>(br: &mut tokio::io::BufReader<R>, result: &mut Vec<Part>) -> Result<()>
 where
     R: AsyncReadExt + Unpin + Send,
 {
@@ -324,7 +319,7 @@ where
         loop {
             let n = br.read_until(10, &mut line0).await?;
             if n <= 2 {
-               break;
+                break;
             }
             let line = &line0[0..n - 2];
             if line_is(line, b"content-type") {
