@@ -6,9 +6,9 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt};
 
 /// Process http requests.
-pub async fn process(mut socket: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
+pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
     loop {
-        let (r, _w) = socket.split();
+        let (r, _w) = stream.split();
         let mut r = tokio::io::BufReader::with_capacity(2048, r);
         let h = Headers::get(&mut r).await?;
 
@@ -49,9 +49,9 @@ pub async fn process(mut socket: tokio::net::TcpStream, ss: Arc<SharedState>) ->
         st = ss.process(st).await;
 
         let hdrs = header(&st);
-        let _ = socket.write_all(&hdrs).await;
+        let _ = stream.write_all(&hdrs).await;
         let body = &st.x.rp.output;
-        let _ = socket.write_all(body).await;
+        let _ = stream.write_all(body).await;
 
         ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
     }

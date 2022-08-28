@@ -110,11 +110,11 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(listen).await?;
     loop {
-        let (socket, _) = listener.accept().await?;
+        let (stream, _) = listener.accept().await?;
         let ssc = ss.clone();
         tokio::spawn(async move {
             // println!("Start process_requests");
-            let _ = request::process(socket, ssc).await;
+            let _ = request::process(stream, ssc).await;
             // println!("End process_requests");
         });
     }
