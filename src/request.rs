@@ -297,7 +297,7 @@ Upload
 
 use rustdb::Part;
 
-/// Parse mulitpart body.
+/// Parse multipart body.
 async fn get_multipart<R>(br: &mut tokio::io::BufReader<R>, result: &mut Vec<Part>) -> Result<()>
 where
     R: AsyncReadExt + Unpin + Send,
