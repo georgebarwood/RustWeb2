@@ -4,16 +4,16 @@ with database browsing, password hashing, database replication, email transmissi
 Installation and starting server
 ================================
 First install [Rust](https://www.rust-lang.org/tools/install) if it is not already installed.
-Then install rustweb from a command prompt using
+Then install rustweb2 from a command prompt using
 
-cargo install rustweb
+cargo install rustweb2
 
 From a command prompt, change to the the directory where the database is to be stored ( the file will be named rustweb.rustdb ). 
-Start rustweb using
+Start rustweb2 using
 
-rustweb 3000
+rustweb2 3000
 
-This should start rustweb server, listening on port 3000 ( you can use any available port ).
+This should start rustweb2 server, listening on port 3000 ( you can use any available port ).
 You should then be able to browse to http://localhost:3000/Menu
 From there are links to a Manual, Execute SQL, a list of Schemas and other links.
 
@@ -33,11 +33,11 @@ Initially login security is disabled. To enable it
 Database replication
 ====================
 
-Start Rustweb in the directory (folder) where you want the replicated database stored, specifying the  -rep option
+Start Rustweb2 in the directory (folder) where you want the replicated database stored, specifying the  -rep option
 
 For example:
 
-rustweb 2000 --rep https://mydomain.com
+rustweb2 2000 --rep https://mydomain.com
 
 If login security has been enabled, you will need to specify login details ( obtained from the login.user table ), for example:
 
@@ -86,7 +86,7 @@ Arguments and Options
 =====================
 
 USAGE:\
-    rustweb [OPTIONS] <PORT>
+    rustweb2 [OPTIONS] <PORT>
 
 ARGS:\
     <PORT>    Port to listen on

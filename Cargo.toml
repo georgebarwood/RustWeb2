@@ -1,0 +1,27 @@
+[package]
+name = "rustweb2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+#rustdb = { path = "../rustdb" } 
+rustdb = { version = "2.9.1" }
+
+tokio = { version = "1.13.0", features = ["macros","rt-multi-thread","parking_lot"] }
+mime = "0.3.16"
+serde_urlencoded = "0.7.1"
+clap = { version = "3.2.17", features = ["derive"] }
+mimalloc = { version = "0.1.26", default-features = false }
+
+serde = { version = "1.0.142", features = ["derive","rc"] }
+rmp-serde = "1.1.0"
+reqwest = "0.11.11"
+
+lettre = { version = "0.10.1" }
+flate3 = "0.1.21"
+argon2rs = "0.2.5"
+
+#console-subscriber = { path = "../console-main/console-subscriber" }
+#axum-debug = "0.2.0"
