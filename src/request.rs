@@ -3,7 +3,7 @@ use crate::Result;
 use std::collections::BTreeMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt};
 
 /// Process http requests.
 pub async fn process(mut socket: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
@@ -92,7 +92,7 @@ struct Headers {
 impl Headers {
     async fn get<R>(br: &mut tokio::io::BufReader<R>) -> Result<Headers>
     where
-        R: AsyncReadExt + Unpin + Send,
+        R: AsyncRead + Unpin + Send,
     {
         let mut r = Self::default();
         let n = br.read_until(b' ', &mut r.method).await?;
@@ -174,13 +174,14 @@ impl Headers {
 
 /// Check whether current line is named header.
 fn line_is(line: &[u8], name: &[u8]) -> bool {
-    if line.len() < name.len() + 1 {
+    let n = name.len();
+    if line.len() < n + 1 {
         return false;
     }
-    if line[name.len()] != b':' {
+    if line[n] != b':' {
         return false;
     }
-    for i in 1..name.len() {
+    for i in 0..n {
         if lower(line[i]) != name[i] {
             return false;
         }
@@ -300,7 +301,7 @@ use rustdb::Part;
 /// Parse multipart body.
 async fn get_multipart<R>(br: &mut tokio::io::BufReader<R>, parts: &mut Vec<Part>) -> Result<()>
 where
-    R: AsyncReadExt + Unpin + Send,
+    R: AsyncRead + Unpin + Send,
 {
     let mut boundary = Vec::new();
     let n = br.read_until(10, &mut boundary).await?;
@@ -338,6 +339,9 @@ where
         let mut data = Vec::new();
         loop {
             let n = br.read_until(10, &mut data).await?;
+            if n == 0 {
+                return Err(eof())?;
+            }
             if n == bn + 2 || n == bn + 4 {
                 let start = data.len() - n;
                 if data[start..start + bn] == boundary {
