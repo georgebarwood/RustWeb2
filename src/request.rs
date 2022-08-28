@@ -127,20 +127,20 @@ impl Headers {
                 let b2 = lower(line[2]);
                 match (b0, b2) {
                     (b'c', b'o') => {
-                        if line_is(line, b"cookie") {
-                            r.cookies = cookie_map(line);
+                        if let Some(n) = line_is(line, b"cookie") {
+                            r.cookies = cookie_map(line,n);
                         }
                     }
                     (b'c', b'n') => {
-                        if line_is(line, b"content-type") {
-                            r.content_type = ltob(line, 13).to_vec();
-                        } else if line_is(line, b"content-length") {
-                            r.content_length = ltos(line, 15);
+                        if let Some(n) = line_is(line, b"content-type") {
+                            r.content_type = ltob(line, n).to_vec();
+                        } else if let Some(n) = line_is(line, b"content-length") {
+                            r.content_length = ltos(line, n);
                         }
                     }
                     (b'h', b's') => {
-                        if line_is(line, b"host") {
-                            r.host = ltos(line, 5);
+                        if let Some(n) = line_is(line, b"host") {
+                            r.host = ltos(line, n);
                         }
                     }
                     _ => {}
@@ -173,20 +173,20 @@ impl Headers {
 }
 
 /// Check whether current line is named header.
-fn line_is(line: &[u8], name: &[u8]) -> bool {
+fn line_is(line: &[u8], name: &[u8]) -> Option<usize> {
     let n = name.len();
     if line.len() < n + 1 {
-        return false;
+        return None;
     }
     if line[n] != b':' {
-        return false;
+        return None;
     }
     for i in 0..n {
         if lower(line[i]) != name[i] {
-            return false;
+            return None;
         }
     }
-    true
+    Some(n + 1)
 }
 
 /// Trim header name.
@@ -227,10 +227,10 @@ fn nos() -> Error {
 }
 
 /// Parse cookie header to a map of cookies.
-fn cookie_map(s: &[u8]) -> BTreeMap<String, String> {
+fn cookie_map(s: &[u8], skip: usize) -> BTreeMap<String, String> {
     let mut map = BTreeMap::new();
     let n = s.len() - 1;
-    let mut i = 7;
+    let mut i = skip;
 
     while i < n {
         while i < n && s[i] == b' ' {
@@ -323,11 +323,11 @@ where
                 break;
             }
             let line = &line0[0..n - 2];
-            if line_is(line, b"content-type") {
-                part.content_type = tos(ltob(line, 13));
+            if let Some(n) = line_is(line, b"content-type") {
+                part.content_type = tos(ltob(line, n));
                 // Note: if part content-type is multipart, maybe it should be parsed.
-            } else if line_is(line, b"content-disposition") {
-                let cd = ltob(line, 20);
+            } else if let Some(n) = line_is(line, b"content-disposition") {
+                let cd = ltob(line, n);
                 if let Some((name, file_name)) = split_cd(cd) {
                     part.name = name;
                     part.file_name = file_name;
