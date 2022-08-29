@@ -3,13 +3,13 @@ use crate::Result;
 use std::collections::BTreeMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt};
+use tokio::io::{AsyncReadExt,AsyncWriteExt};
 
 /// Process http requests.
 pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
+    let (r, mut w) = stream.split();
+    let mut r = Buffer::new(r);
     loop {
-        let (r, _w) = stream.split();
-        let mut r = tokio::io::BufReader::with_capacity(2048, r);
         let h = Headers::get(&mut r).await?;
 
         let mut st = ServerTrans::new();
@@ -22,21 +22,8 @@ pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) ->
         if ct.is_empty() {
             // No body.
         } else if ct == b"application/x-www-form-urlencoded" {
-            let mut bytes = Vec::new();
             let clen: usize = clen.parse()?;
-            while bytes.len() < clen {
-                let buf = r.fill_buf().await?;
-                let buflen = buf.len();
-                if buflen == 0 {
-                    return Ok(());
-                }
-                let mut m = clen - bytes.len();
-                if m > buflen {
-                    m = buflen;
-                }
-                bytes.extend_from_slice(&buf[0..m]);
-                r.consume(m);
-            }
+            let bytes = r.read(clen).await?;
             st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
         } else if is_multipart(ct) {
             get_multipart(&mut r, &mut st.x.qy.parts).await?;
@@ -49,9 +36,8 @@ pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) ->
         st = ss.process(st).await;
 
         let hdrs = header(&st);
-        let _ = stream.write_all(&hdrs).await;
-        let body = &st.x.rp.output;
-        let _ = stream.write_all(body).await;
+        let _ = w.write_all(&hdrs).await;
+        let _ = w.write_all(&st.x.rp.output).await;
 
         ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
     }
@@ -90,30 +76,18 @@ struct Headers {
 }
 
 impl Headers {
-    async fn get<R>(br: &mut tokio::io::BufReader<R>) -> Result<Headers>
-    where
-        R: AsyncRead + Unpin + Send,
-    {
+    async fn get<'a>(br: &mut Buffer<'a>) -> Result<Headers> {
         let mut r = Self::default();
-        let n = br.read_until(b' ', &mut r.method).await?;
-        if n == 0 {
-            return Err(eof())?;
-        }
+        br.read_until(b' ', &mut r.method).await?;
         r.method.pop(); // Remove trailing space.
 
         let mut pq = Vec::new();
-        let n = br.read_until(b' ', &mut pq).await?;
-        if n == 0 {
-            return Err(eof())?;
-        }
+        br.read_until(b' ', &mut pq).await?;
         pq.pop(); // Remove trailing space.
         r.split_pq(&pq);
 
         let mut protocol = Vec::new();
-        let n = br.read_until(b'\n', &mut protocol).await?;
-        if n == 0 {
-            return Err(eof())?;
-        }
+        br.read_until(b'\n', &mut protocol).await?;
 
         let mut line0 = Vec::new();
         loop {
@@ -128,7 +102,7 @@ impl Headers {
                 match (b0, b2) {
                     (b'c', b'o') => {
                         if let Some(n) = line_is(line, b"cookie") {
-                            r.cookies = cookie_map(line,n);
+                            r.cookies = cookie_map(line, n);
                         }
                     }
                     (b'c', b'n') => {
@@ -299,9 +273,7 @@ Upload
 use rustdb::Part;
 
 /// Parse multipart body.
-async fn get_multipart<R>(br: &mut tokio::io::BufReader<R>, parts: &mut Vec<Part>) -> Result<()>
-where
-    R: AsyncRead + Unpin + Send,
+async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result<()>
 {
     let mut boundary = Vec::new();
     let n = br.read_until(10, &mut boundary).await?;
@@ -339,9 +311,6 @@ where
         let mut data = Vec::new();
         loop {
             let n = br.read_until(10, &mut data).await?;
-            if n == 0 {
-                return Err(eof())?;
-            }
             if n == bn + 2 || n == bn + 4 {
                 let start = data.len() - n;
                 if data[start..start + bn] == boundary {
@@ -355,4 +324,61 @@ where
         parts.push(part);
     }
     Ok(())
+}
+
+struct Buffer<'a> {
+    stream: tokio::net::tcp::ReadHalf<'a>,
+    buf: [u8; 2048],
+    i: usize,
+    n: usize,
+}
+
+impl<'a> Buffer<'a> {
+    fn new(stream: tokio::net::tcp::ReadHalf<'a>) -> Self {
+        Self {
+            stream,
+            buf: [0; 2048],
+            i: 0,
+            n: 0,
+        }
+    }
+
+    /// Read until delim is found. Returns eof error if input is closed.
+    async fn read_until(&mut self, delim: u8, to: &mut Vec<u8>) -> Result<usize> {
+        let start = to.len();
+        loop {
+            if self.i == self.n {
+                self.i = 0;
+                self.n = self.stream.read(&mut self.buf).await?;
+                if self.n == 0 {
+                    Err(eof())?
+                }
+            }
+            let b = self.buf[self.i];
+            self.i += 1;
+            to.push(b);
+            if b == delim {
+                return Ok(to.len() - start);
+            }
+        }
+    }
+
+    /// Read specified number of bytes.
+    async fn read(&mut self, n: usize) -> Result<Vec<u8>> {
+        let mut to = Vec::new();
+        loop {
+            if self.i == self.n {
+                self.n = self.stream.read(&mut self.buf).await?;
+                if self.n == 0 {
+                    Err(eof())?
+                }
+            }
+            let b = self.buf[self.i];
+            self.i += 1;
+            to.push(b);
+            if to.len() == n {
+                return Ok(to);
+            }
+        }
+    }
 }
