@@ -3,7 +3,7 @@ use crate::Result;
 use std::collections::BTreeMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt,AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Process http requests.
 pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
@@ -31,7 +31,7 @@ pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) ->
             return Err(nos())?;
         }
 
-        //println!("qy={:?}", st.x.qy);
+        // println!("qy={:?}", st.x.qy);
 
         st = ss.process(st).await;
 
@@ -203,7 +203,7 @@ fn nos() -> Error {
 /// Parse cookie header to a map of cookies.
 fn cookie_map(s: &[u8], skip: usize) -> BTreeMap<String, String> {
     let mut map = BTreeMap::new();
-    let n = s.len() - 1;
+    let n = s.len();
     let mut i = skip;
 
     while i < n {
@@ -273,8 +273,7 @@ Upload
 use rustdb::Part;
 
 /// Parse multipart body.
-async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result<()>
-{
+async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result<()> {
     let mut boundary = Vec::new();
     let n = br.read_until(10, &mut boundary).await?;
     if n < 4 {
