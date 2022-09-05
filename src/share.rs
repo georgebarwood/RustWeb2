@@ -62,12 +62,14 @@ impl SharedState {
     pub fn ip_used(&self, ip: &str, amount: u64) -> bool {
         let mut m = self.dos.lock().unwrap();
         if let Some(info) = m.get_mut(ip) {
+/*
             println!(
                 "ip_used ip={} amount={} used ={}%",
                 ip,
                 amount,
                 (info.used + amount) as f64 * 100f64 / info.limit as f64
             );
+*/
             info.used += amount;
             info.used > info.limit
         } else {

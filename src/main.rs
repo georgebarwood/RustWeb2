@@ -161,15 +161,15 @@ struct Args {
     port: u16,
 
     /// Ip Address to listen on
-    #[clap(short, long, value_parser, default_value = "0.0.0.0")]
+    #[clap(long, value_parser, default_value = "0.0.0.0")]
     ip: String,
 
     /// Server to replicate
-    #[clap(short, long, value_parser, default_value = "")]
+    #[clap(long, value_parser, default_value = "")]
     rep: String,
 
     /// Login cookies for replication
-    #[clap(short, long, value_parser, default_value = "")]
+    #[clap(long, value_parser, default_value = "")]
     login: String,
 
     /// Memory limit for page cache (in MB)
