@@ -40,10 +40,7 @@ pub struct IpInfo {
 
 impl IpInfo {
     fn new() -> Self {
-        Self {
-            used: 0,
-            limit: 0,
-        }
+        Self { used: 0, limit: 0 }
     }
 }
 
@@ -51,7 +48,9 @@ impl SharedState {
     pub fn ip_budget(&self, ip: String) -> u64 {
         let mut m = self.dos.lock().unwrap();
         let info = m.entry(ip).or_insert_with(IpInfo::new);
-        if info.limit == 0 { info.limit = self.dos_limit; }
+        if info.limit == 0 {
+            info.limit = self.dos_limit;
+        }
         if info.used > info.limit {
             0
         } else {
@@ -62,14 +61,14 @@ impl SharedState {
     pub fn ip_used(&self, ip: &str, amount: u64) -> bool {
         let mut m = self.dos.lock().unwrap();
         if let Some(info) = m.get_mut(ip) {
-/*
-            println!(
-                "ip_used ip={} amount={} used ={}%",
-                ip,
-                amount,
-                (info.used + amount) as f64 * 100f64 / info.limit as f64
-            );
-*/
+            /*
+                        println!(
+                            "ip_used ip={} amount={} used ={}%",
+                            ip,
+                            amount,
+                            (info.used + amount) as f64 * 100f64 / info.limit as f64
+                        );
+            */
             info.used += amount;
             info.used > info.limit
         } else {
@@ -161,6 +160,20 @@ impl ServerTrans {
         result.x.ext = TransExt::new();
         result
     }
+
+    pub fn new_with_state( ss: Arc<SharedState>, ip:String ) -> Self {
+        let mut result = Self {
+            x: GenTransaction::new(),
+            log: true,
+            readonly: false,
+            run_time: Duration::from_micros(0),
+        };
+        let mut ext = TransExt::new();
+        ext.ss = Some(ss);
+        ext.ip = ip;
+        result.x.ext = ext;
+        result
+    }
 }
 
 impl Default for ServerTrans {
@@ -176,8 +189,11 @@ pub struct ServerMessage {
 }
 
 /// Extra transaction data.
-#[derive(Default)]
 pub struct TransExt {
+    /// Shared State.
+    pub ss: Option<Arc<SharedState>>,
+    /// IP Address of requestor.
+    pub ip: String,
     /// Signals there is new email to be sent.
     pub tx_email: bool,
     /// Signals time to sleep.
@@ -188,6 +204,20 @@ pub struct TransExt {
 
 impl TransExt {
     fn new() -> Box<Self> {
-        Box::new(Self::default())
+        Box::new(Self {
+            ss:None,
+            ip:String::new(),
+            tx_email: false,
+            sleep: 0,
+            trans_wait: false,
+        })
+    }
+
+    pub fn set_dos( &self, to: u64 )
+    {
+       if let Some(ss) = &self.ss
+       {
+         ss.set_ip_limit( self.ip.clone(), to * 1000_000_000 );
+       }
     }
 }

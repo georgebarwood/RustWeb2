@@ -3,7 +3,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    println!( "args={:?}", args );
+    println!("args={:?}", args);
 
     let listen = format!("{}:{}", args.ip, args.port);
     // let listen = listen.parse().expect("Error parsing listen address:port");
@@ -153,7 +153,7 @@ static MEMALLOC: MiMalloc = MiMalloc;
 use clap::Parser;
 
 /// Command line arguments.
-#[derive(Parser,Debug)]
+#[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// Port to listen on
@@ -164,6 +164,14 @@ struct Args {
     #[clap(long, value_parser, default_value = "0.0.0.0")]
     ip: String,
 
+    /// Denial of Service Limit
+    #[clap(long, value_parser, default_value_t = 500)]
+    dos: u64,
+
+    /// Memory limit for page cache (in MB)
+    #[clap(long, value_parser, default_value_t = 100)]
+    mem: usize,
+
     /// Server to replicate
     #[clap(long, value_parser, default_value = "")]
     rep: String,
@@ -171,14 +179,6 @@ struct Args {
     /// Login cookies for replication
     #[clap(long, value_parser, default_value = "")]
     login: String,
-
-    /// Memory limit for page cache (in MB)
-    #[clap(long, value_parser, default_value_t = 100)]
-    mem: usize,
-
-    /// Denial of Service Limit
-    #[clap(long, value_parser, default_value_t = 100)]
-    dos: u64,
 
     /// Trace query time
     #[clap(long, value_parser, default_value_t = false)]

@@ -19,7 +19,7 @@ pub async fn process(
         r.update_used();
 
         let (hdrs, outp) = {
-            let mut st = ServerTrans::new();
+            let mut st = ServerTrans::new_with_state(ss.clone(),r.ip.clone());
             st.readonly = h.method == b"GET" || h.args.get("readonly").is_some();
             st.x.qy.path = h.path;
             st.x.qy.params = h.args;
@@ -40,19 +40,16 @@ pub async fn process(
 
             if r.update_used() {
                 st.x.rp.status_code = 503;
-            }
-            else
-            {
-              // println!("qy={:?}", st.x.qy);
+            } else {
+                // println!("qy={:?}", st.x.qy);
 
-              st = ss.process(st).await;
+                st = ss.process(st).await;
 
-              let used = st.run_time.as_micros() as u64;
-              if ss.ip_used(&r.ip, used * used * 1000u64)
-              {
-                st.x.rp.status_code = 503;
-                st.x.rp.output = Vec::new();
-              }               
+                let used = st.run_time.as_micros() as u64;
+                if ss.ip_used(&r.ip, used * used * 1000u64) {
+                    st.x.rp.status_code = 503;
+                    st.x.rp.output = Vec::new();
+                }
             }
 
             (header(&st), st.x.rp.output)

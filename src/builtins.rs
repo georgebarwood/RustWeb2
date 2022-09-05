@@ -15,6 +15,7 @@ pub fn get_bmap() -> BuiltinMap {
         ("ARGON", DataKind::Binary, CompileFunc::Value(c_argon)),
         ("EMAILTX", DataKind::Int, CompileFunc::Int(c_email_tx)),
         ("SLEEP", DataKind::Int, CompileFunc::Int(c_sleep)),
+        ("SETDOS", DataKind::Int, CompileFunc::Int(c_setdos)),
         ("TRANSWAIT", DataKind::Int, CompileFunc::Int(c_trans_wait)),
         ("BINPACK", DataKind::Binary, CompileFunc::Value(c_binpack)),
         (
@@ -69,6 +70,29 @@ impl CExp<i64> for Sleep {
         let mut ext = ee.tr.get_extension();
         if let Some(mut ext) = ext.downcast_mut::<TransExt>() {
             ext.sleep = if to <= 0 { 1 } else { to as u64 };
+        }
+        ee.tr.set_extension(ext);
+        0
+    }
+}
+
+/// Compile call to SETDOS.
+fn c_setdos(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(b, args, &[DataKind::Int]);
+    let to = c_int(b, &mut args[0]);
+    Box::new(SetDos {to})
+}
+
+/// Compiled call to SETDOS
+struct SetDos {
+    to: CExpPtr<i64>,
+}
+impl CExp<i64> for SetDos {
+    fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
+        let to = self.to.eval(ee, d) as u64;
+        let mut ext = ee.tr.get_extension();
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
+            ext.set_dos(to);
         }
         ee.tr.set_extension(ext);
         0
