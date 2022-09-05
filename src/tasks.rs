@@ -3,6 +3,14 @@ use rustdb::{AccessPagedData, Database};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
+/// Task for calling ip_decay every 10 seconds.
+pub async fn ip_decay_loop(ss: Arc<SharedState>) {
+    loop {
+        tokio::time::sleep(core::time::Duration::from_secs(10)).await;
+        ss.ip_decay();
+    }
+}
+
 /// Task for syncing with master database
 pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
     let db_is_new = rx.await.unwrap();

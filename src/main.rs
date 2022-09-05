@@ -3,10 +3,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    println!(
-        "ip={} port={} mem={} rep={} login={}",
-        args.ip, args.port, args.mem, args.rep, args.login
-    );
+    println!( "args={:?}", args );
 
     let listen = format!("{}:{}", args.ip, args.port);
     // let listen = listen.parse().expect("Error parsing listen address:port");
@@ -49,6 +46,8 @@ async fn main() -> Result<()> {
         replicate_source,
         replicate_credentials,
         tracetime: args.tracetime,
+        dos_limit: args.dos * 1000_000_000,
+        dos: Arc::new(Mutex::new(HashMap::default())),
     });
 
     if is_master {
@@ -64,6 +63,10 @@ async fn main() -> Result<()> {
         let ssc = ss.clone();
         tokio::spawn(async move { tasks::sync_loop(sync_rx, ssc).await });
     }
+
+    // Start the ip_decay task.
+    let ssc = ss.clone();
+    tokio::spawn(async move { tasks::ip_decay_loop(ssc).await });
 
     // Start the task that updates the database.
     let ssc = ss.clone();
@@ -110,11 +113,11 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(listen).await?;
     loop {
-        let (stream, _) = listener.accept().await?;
+        let (stream, src) = listener.accept().await?;
         let ssc = ss.clone();
         tokio::spawn(async move {
             // println!("Start process_requests");
-            let _ = request::process(stream, ssc).await;
+            let _ = request::process(stream, src.ip().to_string(), ssc).await;
             // println!("End process_requests");
         });
     }
@@ -132,10 +135,15 @@ pub mod share;
 pub mod tasks;
 
 use mimalloc::MiMalloc;
+use rustc_hash::FxHashMap as HashMap;
 use rustdb::{
     AccessPagedData, AtomicFile, Database, ObjRef, SharedPagedData, SimpleFileStorage, Value,
 };
-use std::{rc::Rc, sync::Arc, thread};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+    thread,
+};
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Memory allocator ( MiMalloc ).
@@ -145,7 +153,7 @@ static MEMALLOC: MiMalloc = MiMalloc;
 use clap::Parser;
 
 /// Command line arguments.
-#[derive(Parser)]
+#[derive(Parser,Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// Port to listen on
@@ -165,8 +173,12 @@ struct Args {
     login: String,
 
     /// Memory limit for page cache (in MB)
-    #[clap(short, long, value_parser, default_value_t = 10)]
+    #[clap(long, value_parser, default_value_t = 100)]
     mem: usize,
+
+    /// Denial of Service Limit
+    #[clap(long, value_parser, default_value_t = 100)]
+    dos: u64,
 
     /// Trace query time
     #[clap(long, value_parser, default_value_t = false)]

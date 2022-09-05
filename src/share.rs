@@ -1,5 +1,7 @@
+use rustc_hash::FxHashMap as HashMap;
 use rustdb::{GenTransaction, Transaction};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Global shared state.
@@ -24,10 +26,74 @@ pub struct SharedState {
     pub replicate_credentials: String,
     /// Trace time to process each request.
     pub tracetime: bool,
+    /// Denial of service limit.
+    pub dos_limit: u64,
+    /// Information for mitigating DoS attacks
+    pub dos: Arc<Mutex<HashMap<String, IpInfo>>>,
+}
+
+#[derive(Debug)]
+pub struct IpInfo {
+    used: u64,
+    limit: u64,
+}
+
+impl IpInfo {
+    fn new() -> Self {
+        Self {
+            used: 0,
+            limit: 0,
+        }
+    }
 }
 
 impl SharedState {
+    pub fn ip_budget(&self, ip: String) -> u64 {
+        let mut m = self.dos.lock().unwrap();
+        let info = m.entry(ip).or_insert_with(IpInfo::new);
+        if info.limit == 0 { info.limit = self.dos_limit; }
+        if info.used > info.limit {
+            0
+        } else {
+            info.limit - info.used
+        }
+    }
+
+    pub fn ip_used(&self, ip: &str, amount: u64) -> bool {
+        let mut m = self.dos.lock().unwrap();
+        if let Some(info) = m.get_mut(ip) {
+            println!(
+                "ip_used ip={} amount={} used ={}%",
+                ip,
+                amount,
+                (info.used + amount) as f64 * 100f64 / info.limit as f64
+            );
+            info.used += amount;
+            info.used > info.limit
+        } else {
+            false
+        }
+    }
+
+    pub fn set_ip_limit(&self, ip: String, limit: u64) {
+        let mut m = self.dos.lock().unwrap();
+        let info = m.entry(ip).or_insert_with(IpInfo::new);
+        info.limit = limit;
+    }
+
+    /// Deflate old usage by 10% periodically.
+    pub fn ip_decay(&self) {
+        let mut m = self.dos.lock().unwrap();
+        m.retain(|_ip, info| {
+            if info.used > 0 {
+                info.used -= 1 + info.used / 10;
+            }
+            info.used > 0
+        });
+    }
+
     pub async fn process(&self, mut st: ServerTrans) -> ServerTrans {
+        let start = std::time::SystemTime::now();
         let mut wait_rx = self.wait_tx.subscribe();
         let mut st = if st.readonly {
             // Readonly request, use read-only copy of database.
@@ -51,6 +117,8 @@ impl SharedState {
             let _ = self.tx.send(ServerMessage { st, reply }).await;
             rx.await.unwrap()
         };
+        st.run_time = start.elapsed().unwrap();
+
         let ext = st.x.get_extension();
         if let Some(ext) = ext.downcast_ref::<TransExt>() {
             if self.is_master {
@@ -64,7 +132,7 @@ impl SharedState {
             if ext.trans_wait {
                 tokio::select! {
                    _ = wait_rx.recv() => {}
-                   _ = tokio::time::sleep(core::time::Duration::from_secs(600)) => {}
+                   _ = tokio::time::sleep(Duration::from_secs(600)) => {}
                 }
             }
         }
@@ -77,6 +145,7 @@ pub struct ServerTrans {
     pub x: GenTransaction,
     pub log: bool,
     pub readonly: bool,
+    pub run_time: core::time::Duration,
 }
 
 impl ServerTrans {
@@ -85,6 +154,7 @@ impl ServerTrans {
             x: GenTransaction::new(),
             log: true,
             readonly: false,
+            run_time: Duration::from_micros(0),
         };
         result.x.ext = TransExt::new();
         result

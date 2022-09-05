@@ -6,38 +6,61 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Process http requests.
-pub async fn process(mut stream: tokio::net::TcpStream, ss: Arc<SharedState>) -> Result<()> {
+pub async fn process(
+    mut stream: tokio::net::TcpStream,
+    ip: String,
+    ss: Arc<SharedState>,
+) -> Result<()> {
     let (r, mut w) = stream.split();
-    let mut r = Buffer::new(r);
+    let mut r = Buffer::new(r, ss.clone(), ip.clone());
     loop {
+        r.reset();
         let h = Headers::get(&mut r).await?;
+        r.update_used();
 
-        let mut st = ServerTrans::new();
-        st.readonly = h.method == b"GET" || h.args.get("readonly").is_some();
-        st.x.qy.path = h.path;
-        st.x.qy.params = h.args;
-        st.x.qy.cookies = h.cookies;
-        let (ct, clen) = (&h.content_type, h.content_length);
+        let (hdrs, outp) = {
+            let mut st = ServerTrans::new();
+            st.readonly = h.method == b"GET" || h.args.get("readonly").is_some();
+            st.x.qy.path = h.path;
+            st.x.qy.params = h.args;
+            st.x.qy.cookies = h.cookies;
+            let (ct, clen) = (&h.content_type, h.content_length);
 
-        if ct.is_empty() {
-            // No body.
-        } else if ct == b"application/x-www-form-urlencoded" {
-            let clen: usize = clen.parse()?;
-            let bytes = r.read(clen).await?;
-            st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-        } else if is_multipart(ct) {
-            get_multipart(&mut r, &mut st.x.qy.parts).await?;
-        } else {
-            return Err(nos())?;
-        }
+            if ct.is_empty() {
+                // No body.
+            } else if ct == b"application/x-www-form-urlencoded" {
+                let clen: usize = clen.parse()?;
+                let bytes = r.read(clen).await?;
+                st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+            } else if is_multipart(ct) {
+                get_multipart(&mut r, &mut st.x.qy.parts).await?;
+            } else {
+                return Err(nos())?;
+            }
 
-        // println!("qy={:?}", st.x.qy);
+            if r.update_used() {
+                st.x.rp.status_code = 503;
+            }
+            else
+            {
+              // println!("qy={:?}", st.x.qy);
 
-        st = ss.process(st).await;
+              st = ss.process(st).await;
 
-        let hdrs = header(&st);
+              let used = st.run_time.as_micros() as u64;
+              if ss.ip_used(&r.ip, used * used * 1000u64)
+              {
+                st.x.rp.status_code = 503;
+                st.x.rp.output = Vec::new();
+              }               
+            }
+
+            (header(&st), st.x.rp.output)
+        };
+
+        // Should be timeout on this.
         let _ = w.write_all(&hdrs).await;
-        let _ = w.write_all(&st.x.rp.output).await;
+        let _ = w.write_all(&outp).await;
 
         ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
     }
@@ -117,7 +140,13 @@ impl Headers {
                             r.host = ltos(line, n);
                         }
                     }
-                    _ => {}
+                    _ => {
+                        if let Some(n) = line_is(line, b"x-real-ip") {
+                            let ip = ltos(line, n);
+                            br.limit = br.ss.ip_budget(ip.clone());
+                            br.ip = ip;
+                        }
+                    }
                 }
             }
             line0.clear();
@@ -325,21 +354,99 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result
     Ok(())
 }
 
-struct Buffer<'a> {
+/// Buffer for reading tcp input stream, with budget check.
+pub struct Buffer<'a> {
     stream: tokio::net::tcp::ReadHalf<'a>,
     buf: [u8; 2048],
     i: usize,
     n: usize,
+    total: u64,
+    limit: u64,
+    timer: std::time::SystemTime,
+    ss: Arc<SharedState>,
+    ip: String,
+}
+
+impl<'a> Drop for Buffer<'a> {
+    fn drop(&mut self) {
+        self.update_used();
+    }
 }
 
 impl<'a> Buffer<'a> {
-    fn new(stream: tokio::net::tcp::ReadHalf<'a>) -> Self {
+    fn new(stream: tokio::net::tcp::ReadHalf<'a>, ss: Arc<SharedState>, ip: String) -> Self {
+        let limit = ss.ip_budget(ip.clone());
         Self {
             stream,
             buf: [0; 2048],
             i: 0,
             n: 0,
+            total: 0,
+            limit,
+            timer: std::time::SystemTime::now(),
+            ss,
+            ip,
         }
+    }
+
+    fn update_used(&mut self) -> bool {
+        let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
+        let used = elapsed as u64 * self.total as u64;
+        if used > 0 {
+            self.ss.ip_used(&self.ip, used)
+        } else {
+            false
+        }
+    }
+
+    fn reset(&mut self) {
+        self.total = 0;
+        self.timer = std::time::SystemTime::now();
+    }
+
+    async fn fill(&mut self) -> Result<()> {
+        self.i = 0;
+        let micros = self.limit / (self.total + 1000);
+        let budget = core::time::Duration::from_micros(micros as u64);
+        let used = self.timer.elapsed().unwrap();
+
+        /*
+                println!(
+                    "Buffer fill used={:?} budget={:?} limit={} total={}",
+                    used, budget, self.limit, self.total
+                );
+        */
+
+        if used > budget {
+            println!("used {:?} exceeded budget {:?}", used, budget);
+            Err(nos())?
+        }
+        let timeout = budget - used;
+
+        tokio::select! {
+            _ = tokio::time::sleep(timeout) =>
+            {
+               Err(nos())?
+            }
+            rd = self.stream.read(&mut self.buf) =>
+            {
+                match rd
+                {
+                   Ok(n) =>
+                   {
+                     if n == 0 {
+                        Err(eof())?
+                     }
+                     self.n = n;
+                     if self.total == 0 { self.reset(); }
+                     self.total += n as u64;
+                   }
+                   Err(e) => { Err(e)? }
+                }
+            }
+
+        }
+        Ok(())
     }
 
     /// Read until delim is found. Returns eof error if input is closed.
@@ -347,11 +454,7 @@ impl<'a> Buffer<'a> {
         let start = to.len();
         loop {
             if self.i == self.n {
-                self.i = 0;
-                self.n = self.stream.read(&mut self.buf).await?;
-                if self.n == 0 {
-                    Err(eof())?
-                }
+                self.fill().await?;
             }
             let b = self.buf[self.i];
             self.i += 1;
@@ -367,10 +470,7 @@ impl<'a> Buffer<'a> {
         let mut to = Vec::new();
         loop {
             if self.i == self.n {
-                self.n = self.stream.read(&mut self.buf).await?;
-                if self.n == 0 {
-                    Err(eof())?
-                }
+                self.fill().await?;
             }
             let b = self.buf[self.i];
             self.i += 1;
