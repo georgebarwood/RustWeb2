@@ -108,8 +108,9 @@ async fn main() -> Result<(), std::io::Error> {
                 if ss.tracetime {
                     println!("Pages updated={updates}");
                 }
+            } else {
+                println!("No pages updated");
             }
-            else { println!("No pages updated"); }            
             let _x = sm.reply.send(sm.st);
         }
     });
@@ -127,9 +128,8 @@ async fn main() -> Result<(), std::io::Error> {
     }
 }
 
-fn _recover( db: &rustdb::DB )
-{
-  let sql = "ALTER FN web.SetDos( uid int ) RETURNS int AS
+fn _recover(db: &rustdb::DB) {
+    let sql = "ALTER FN web.SetDos( uid int ) RETURNS int AS
 BEGIN
   DECLARE ok int
   SET ok = SETDOS
@@ -144,9 +144,9 @@ BEGIN
   END
   RETURN ok
 END";
-  
-  let mut tr = rustdb::GenTransaction::new();
-  db.run( sql, &mut tr ); 
+
+    let mut tr = rustdb::GenTransaction::new();
+    db.run(sql, &mut tr);
 }
 
 /// Extra SQL builtin functions.
@@ -197,7 +197,7 @@ struct Args {
     #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
     dos_read: u64,
 
-    #[clap(long, value_parser, default_value_t = 1_000_000)]
+    #[clap(long, value_parser, default_value_t = 100_000)]
     dos_cpu: u64,
 
     #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]

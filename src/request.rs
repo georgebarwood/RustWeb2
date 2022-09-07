@@ -51,7 +51,6 @@ pub async fn process(
         if ct.is_empty() {
             // No body.
         } else {
-
             st.readonly = true;
             let save = st.x.qy.sql.clone();
             st.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
@@ -71,7 +70,7 @@ pub async fn process(
             }
         }
 
-        if st.x.rp.status_code == 200 { 
+        if st.x.rp.status_code == 200 {
             st.readonly = readonly;
             // println!("qy={:?} readonly={}", st.x.qy, readonly);
             st = ss.process(st).await;
@@ -175,6 +174,9 @@ impl Headers {
                             let ip = ltos(line, n);
                             br.budget = br.ss.u_budget(ip.clone());
                             br.ip = ip;
+                            if br.budget[0] == 0 {
+                                return Err(tmr());
+                            }
                         }
                     }
                 }

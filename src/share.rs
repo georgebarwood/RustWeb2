@@ -36,7 +36,7 @@ pub struct SharedState {
     pub tracedos: bool,
 }
 
-/// Information kept on usage by each user. 
+/// Information kept on usage by each user.
 #[derive(Debug)]
 pub struct UseInfo {
     used: [u64; 4],
