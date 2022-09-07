@@ -27,7 +27,7 @@ pub struct SharedState {
     /// Denial of service limit.
     pub dos_limit: [u64; 4],
     /// Information for mitigating DoS attacks
-    pub dos: Arc<Mutex<HashMap<String, IpInfo>>>,
+    pub dos: Arc<Mutex<HashMap<String, UseInfo>>>,
 
     /// Trace time to process each request.
     pub tracetime: bool,
@@ -36,13 +36,14 @@ pub struct SharedState {
     pub tracedos: bool,
 }
 
+/// Information kept on usage by each user. 
 #[derive(Debug)]
-pub struct IpInfo {
+pub struct UseInfo {
     used: [u64; 4],
     limit: [u64; 4],
 }
 
-impl IpInfo {
+impl UseInfo {
     fn new() -> Self {
         Self {
             used: [0; 4],
@@ -54,7 +55,7 @@ impl IpInfo {
 impl SharedState {
     pub fn u_budget(&self, uid: String) -> [u64; 4] {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(uid).or_insert_with(IpInfo::new);
+        let info = m.entry(uid).or_insert_with(UseInfo::new);
         if info.limit[0] == 0 {
             info.limit = self.dos_limit;
         }
@@ -89,7 +90,7 @@ impl SharedState {
 
     pub fn u_set_limits(&self, u: String, limit: [u64; 4]) -> bool {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(u).or_insert_with(IpInfo::new);
+        let info = m.entry(u).or_insert_with(UseInfo::new);
         info.limit = limit;
         for i in 0..4 {
             if info.used[i] >= info.limit[i] {
@@ -116,6 +117,7 @@ impl SharedState {
         });
     }
 
+    /// Process a server transaction.
     pub async fn process(&self, mut st: ServerTrans) -> ServerTrans {
         let start = std::time::SystemTime::now();
         let mut wait_rx = self.wait_tx.subscribe();

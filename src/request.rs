@@ -497,7 +497,7 @@ impl<'a> Buffer<'a> {
     }
 }
 
-/// Function to write response, with budgete-based timeout.
+/// Function to write response, with budget-based timeout.
 async fn write<'a>(
     w: &mut tokio::net::tcp::WriteHalf<'a>,
     data: &[u8],
