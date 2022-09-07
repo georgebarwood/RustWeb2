@@ -25,7 +25,7 @@ pub struct SharedState {
     /// Cookies for replication.
     pub replicate_credentials: String,
     /// Denial of service limit.
-    pub dos_limit: u64,
+    pub dos_limit: [u64; 4],
     /// Information for mitigating DoS attacks
     pub dos: Arc<Mutex<HashMap<String, IpInfo>>>,
 
@@ -38,62 +38,81 @@ pub struct SharedState {
 
 #[derive(Debug)]
 pub struct IpInfo {
-    used: u64,
-    limit: u64,
+    used: [u64; 4],
+    limit: [u64; 4],
 }
 
 impl IpInfo {
     fn new() -> Self {
-        Self { used: 0, limit: 0 }
+        Self {
+            used: [0; 4],
+            limit: [0; 4],
+        }
     }
 }
 
 impl SharedState {
-    pub fn ip_budget(&self, ip: String) -> u64 {
+    pub fn u_budget(&self, uid: String) -> [u64; 4] {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(ip).or_insert_with(IpInfo::new);
-        if info.limit == 0 {
+        let info = m.entry(uid).or_insert_with(IpInfo::new);
+        if info.limit[0] == 0 {
             info.limit = self.dos_limit;
         }
-        if info.used > info.limit {
-            0
-        } else {
-            info.limit - info.used
+        let mut result = [0; 4];
+        for i in 0..4 {
+            if info.used[i] >= info.limit[i] {
+                return [0; 4];
+            }
+            result[i] = info.limit[i] - info.used[i];
         }
+        result
     }
 
-    pub fn ip_used(&self, ip: &str, amount: u64) -> bool {
+    pub fn u_inc(&self, uid: &str, amount: [u64; 4]) {
         let mut m = self.dos.lock().unwrap();
-        if let Some(info) = m.get_mut(ip) {
+        if let Some(info) = m.get_mut(uid) {
+            for i in 0..4 {
+                info.used[i] += amount[i];
+            }
             if self.tracedos {
                 println!(
-                    "ip_used ip={} delta={}% used={}%",
-                    ip,
-                    (amount) as f64 * 100f64 / info.limit as f64,
-                    (info.used + amount) as f64 * 100f64 / info.limit as f64
+                    "uid={} Count={}% Read={}% Cpu={}% Write={}%",
+                    uid,
+                    100f64 * info.used[0] as f64 / info.limit[0] as f64,
+                    100f64 * info.used[1] as f64 / info.limit[1] as f64,
+                    100f64 * info.used[2] as f64 / info.limit[2] as f64,
+                    100f64 * info.used[3] as f64 / info.limit[3] as f64,
                 );
             }
-            info.used += amount;
-            info.used > info.limit
-        } else {
-            false
         }
     }
 
-    pub fn set_ip_limit(&self, ip: String, limit: u64) {
+    pub fn u_set_limits(&self, u: String, limit: [u64; 4]) -> bool {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(ip).or_insert_with(IpInfo::new);
+        let info = m.entry(u).or_insert_with(IpInfo::new);
         info.limit = limit;
+        for i in 0..4 {
+            if info.used[i] >= info.limit[i] {
+                return false;
+            }
+        }
+        true
     }
 
     /// Deflate old usage by 10% periodically.
-    pub fn ip_decay(&self) {
+    pub fn u_decay(&self) {
         let mut m = self.dos.lock().unwrap();
         m.retain(|_ip, info| {
-            if info.used > 0 {
-                info.used -= 1 + info.used / 10;
+            let mut nz = false;
+            for i in 0..4 {
+                if info.used[i] > 0 {
+                    info.used[i] -= 1 + info.used[i] / 10;
+                }
+                if info.used[i] > 0 {
+                    nz = true;
+                }
             }
-            info.used > 0
+            nz
         });
     }
 
@@ -126,6 +145,7 @@ impl SharedState {
 
         let ext = st.x.get_extension();
         if let Some(ext) = ext.downcast_ref::<TransExt>() {
+            st.uid = ext.uid.clone();
             if self.is_master {
                 if ext.sleep > 0 {
                     let _ = self.sleep_tx.send(ext.sleep);
@@ -141,6 +161,7 @@ impl SharedState {
                 }
             }
         }
+        st.x.set_extension(ext);
         st
     }
 }
@@ -151,6 +172,7 @@ pub struct ServerTrans {
     pub log: bool,
     pub readonly: bool,
     pub run_time: core::time::Duration,
+    pub uid: String,
 }
 
 impl ServerTrans {
@@ -160,6 +182,7 @@ impl ServerTrans {
             log: true,
             readonly: false,
             run_time: Duration::from_micros(0),
+            uid: String::new(),
         };
         result.x.ext = TransExt::new();
         result
@@ -171,10 +194,11 @@ impl ServerTrans {
             log: true,
             readonly: false,
             run_time: Duration::from_micros(0),
+            uid: String::new(),
         };
         let mut ext = TransExt::new();
         ext.ss = Some(ss);
-        ext.ip = ip;
+        ext.uid = ip;
         result.x.ext = ext;
         result
     }
@@ -196,8 +220,8 @@ pub struct ServerMessage {
 pub struct TransExt {
     /// Shared State.
     pub ss: Option<Arc<SharedState>>,
-    /// IP Address of requestor.
-    pub ip: String,
+    /// Id of requestor ( IP address or logged in user id ).
+    pub uid: String,
     /// Signals there is new email to be sent.
     pub tx_email: bool,
     /// Signals time to sleep.
@@ -210,16 +234,19 @@ impl TransExt {
     fn new() -> Box<Self> {
         Box::new(Self {
             ss: None,
-            ip: String::new(),
+            uid: String::new(),
             tx_email: false,
             sleep: 0,
             trans_wait: false,
         })
     }
 
-    pub fn set_dos(&self, to: u64) {
+    /// Set limits, returns false if limit exceeded.
+    pub fn set_dos(&self, uid: String, to: [u64; 4]) -> bool {
         if let Some(ss) = &self.ss {
-            ss.set_ip_limit(self.ip.clone(), to * 1_000_000_000);
+            ss.u_set_limits(uid, to)
+        } else {
+            true
         }
     }
 }

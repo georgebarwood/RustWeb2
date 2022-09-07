@@ -1,3 +1,20 @@
+/* New thoughts on Dos checking.
+
+(1) Have several measures.
+
+#Requests
+#CPU usage
+#Request IO
+#Response IO
+
+(2) Have builtin call to set limits and user ID ( if someone is logged on ).
+
+(3) If request has a body, need to get user ID before reading body, to get correct budget for reading body.
+
+SETDOS( userid (string), req_count, cpu_limit, req_limit, res_limit )
+
+*/
+
 use crate::share::{Error, ServerTrans, SharedState};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -12,56 +29,67 @@ pub async fn process(
     let (r, mut w) = stream.split();
     let mut r = Buffer::new(r, ss.clone(), ip.clone());
 
-    r.reset();
-    let h = Headers::get(&mut r).await?;
-    r.update_used();
+    let mut used = [1, 0, 0, 0];
 
-    let (hdrs, outp) = {
+    let h = Headers::get(&mut r).await;
+    let h = match h {
+        Ok(h) => h,
+        Err(e) => {
+            if e.code == 0 {
+                return Ok(());
+            }
+            return Err(e)?;
+        }
+    };
+    let (hdrs, outp, uid) = {
         let mut st = ServerTrans::new_with_state(ss.clone(), r.ip.clone());
-
-        st.readonly = h.method == b"GET" || h.args.get("readonly").is_some();
+        let readonly = h.method == b"GET" || h.args.get("readonly").is_some();
         st.x.qy.path = h.path;
         st.x.qy.params = h.args;
         st.x.qy.cookies = h.cookies;
         let (ct, clen) = (&h.content_type, h.content_length);
-
         if ct.is_empty() {
             // No body.
-        } else if ct == b"application/x-www-form-urlencoded" {
-            let clen: usize = clen.parse()?;
-            let bytes = r.read(clen).await?;
-            st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-        } else if is_multipart(ct) {
-            get_multipart(&mut r, &mut st.x.qy.parts).await?;
         } else {
-            st.x.rp.status_code = 501;
-        }
 
-        if r.update_used() {
-            st.x.rp.status_code = 429;
-        }
-
-        if st.x.rp.status_code == 200 {
-            // println!("qy={:?}", st.x.qy);
-
+            st.readonly = true;
+            let save = st.x.qy.sql.clone();
+            st.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
             st = ss.process(st).await;
+            st.x.qy.sql = save;
+            r.budget = ss.u_budget(st.uid.clone());
+            st.readonly = false;
 
-            let rt = st.run_time.as_micros() as u64;
-
-            if ss.ip_used(&r.ip, rt * 2000_000u64) {
-                st.x.rp.status_code = 429;
-                st.x.rp.output = Vec::new();
+            if ct == b"application/x-www-form-urlencoded" {
+                let clen: usize = clen.parse()?;
+                let bytes = r.read(clen).await?;
+                st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+            } else if is_multipart(ct) {
+                get_multipart(&mut r, &mut st.x.qy.parts).await?;
+            } else {
+                st.x.rp.status_code = 501;
             }
         }
-        (header(&st), st.x.rp.output)
+
+        if st.x.rp.status_code == 200 { 
+            st.readonly = readonly;
+            // println!("qy={:?} readonly={}", st.x.qy, readonly);
+            st = ss.process(st).await;
+            used[2] = st.run_time.as_micros() as u64;
+        }
+        (header(&st), st.x.rp.output, st.uid)
     };
 
     // let _ = w.write_all(&hdrs).await;
     // let _ = w.write_all(&outp).await;
-    let budget = ss.ip_budget(r.ip.clone());
+
+    let budget = r.budget[3];
     let mut load = write(&mut w, &hdrs, budget).await?;
     load += write(&mut w, &outp, budget - load).await?;
-    ss.ip_used(&r.ip, load);
+
+    used[1] = r.used();
+    used[3] = load;
+    ss.u_inc(&uid, used);
 
     ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
 
@@ -145,7 +173,7 @@ impl Headers {
                     _ => {
                         if let Some(n) = line_is(line, b"x-real-ip") {
                             let ip = ltos(line, n);
-                            br.limit = br.ss.ip_budget(ip.clone());
+                            br.budget = br.ss.u_budget(ip.clone());
                             br.ip = ip;
                         }
                     }
@@ -363,7 +391,7 @@ struct Buffer<'a> {
     i: usize,
     n: usize,
     total: u64,
-    limit: u64,
+    budget: [u64; 4],
     timer: std::time::SystemTime,
     ss: Arc<SharedState>,
     ip: String,
@@ -371,50 +399,45 @@ struct Buffer<'a> {
 
 impl<'a> Drop for Buffer<'a> {
     fn drop(&mut self) {
-        self.update_used();
+        // ToDo : call ss.u_inc
     }
 }
 
 impl<'a> Buffer<'a> {
     fn new(stream: tokio::net::tcp::ReadHalf<'a>, ss: Arc<SharedState>, ip: String) -> Self {
-        let limit = ss.ip_budget(ip.clone());
+        let budget = ss.u_budget(ip.clone());
         Self {
             stream,
             buf: [0; 2048],
             i: 0,
             n: 0,
             total: 0,
-            limit,
+            budget,
             timer: std::time::SystemTime::now(),
             ss,
             ip,
         }
     }
 
-    fn update_used(&mut self) -> bool {
-        let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
-        let used = elapsed as u64 * self.total as u64;
-        if used > 0 {
-            self.ss.ip_used(&self.ip, used)
-        } else {
-            false
+    fn used(&mut self) -> u64 {
+        if self.total == 0 {
+            return 0;
         }
-    }
-
-    fn reset(&mut self) {
+        let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
+        let result = elapsed as u64 * self.total as u64;
         self.total = 0;
-        self.timer = std::time::SystemTime::now();
+        result
     }
 
     async fn fill(&mut self) -> Result<(), Error> {
         self.i = 0;
-        let micros = self.limit / (self.total + 1000);
-        let budget = core::time::Duration::from_micros(micros as u64);
+        let micros = self.budget[1] / (self.total + 1000);
+        let bm = core::time::Duration::from_micros(micros as u64);
         let used = self.timer.elapsed().unwrap();
-        if used > budget {
+        if used >= bm {
             return Err(tmr());
         }
-        let timeout = budget - used;
+        let timeout = bm - used;
 
         tokio::select! {
             _ = tokio::time::sleep(timeout) =>
@@ -431,7 +454,6 @@ impl<'a> Buffer<'a> {
                         Err(eof())?
                      }
                      self.n = n;
-                     if self.total == 0 { self.reset(); }
                      self.total += n as u64;
                    }
                    Err(e) => { Err(e)? }

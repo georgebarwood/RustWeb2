@@ -78,24 +78,47 @@ impl CExp<i64> for Sleep {
 
 /// Compile call to SETDOS.
 fn c_setdos(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
-    check_types(b, args, &[DataKind::Int]);
-    let to = c_int(b, &mut args[0]);
-    Box::new(SetDos { to })
+    check_types(
+        b,
+        args,
+        &[
+            DataKind::String,
+            DataKind::Int,
+            DataKind::Int,
+            DataKind::Int,
+            DataKind::Int,
+        ],
+    );
+    let uid = c_value(b, &mut args[0]);
+    let mut to = Vec::new();
+    for i in 0..4 {
+        to.push(c_int(b, &mut args[i + 1]));
+    }
+    Box::new(SetDos { uid, to })
 }
 
 /// Compiled call to SETDOS
 struct SetDos {
-    to: CExpPtr<i64>,
+    uid: CExpPtr<Value>,
+    to: Vec<CExpPtr<i64>>,
 }
 impl CExp<i64> for SetDos {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
-        let to = self.to.eval(ee, d) as u64;
+        let mut result = 0;
+        let uid = self.uid.eval(ee, d).str().to_string();
+        let mut to = [0; 4];
+        for i in 0..4 {
+            to[i] = self.to[i].eval(ee, d) as u64;
+        }
         let mut ext = ee.tr.get_extension();
         if let Some(ext) = ext.downcast_mut::<TransExt>() {
-            ext.set_dos(to);
+            ext.uid = uid.clone();
+            if ext.set_dos(uid, to) {
+                result = 1;
+            }
         }
         ee.tr.set_extension(ext);
-        0
+        result
     }
 }
 

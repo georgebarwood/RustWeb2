@@ -43,7 +43,7 @@ async fn main() -> Result<(), std::io::Error> {
         is_master,
         replicate_source,
         replicate_credentials,
-        dos_limit: args.dos * 1_000_000_000,
+        dos_limit: [args.dos_count, args.dos_read, args.dos_cpu, args.dos_write],
         dos: Arc::new(Mutex::new(HashMap::default())),
         tracetime: args.tracetime,
         tracedos: args.tracedos,
@@ -65,7 +65,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     // Start the ip_decay task.
     let ssc = ss.clone();
-    tokio::spawn(async move { tasks::ip_decay_loop(ssc).await });
+    tokio::spawn(async move { tasks::u_decay_loop(ssc).await });
 
     // Start the task that updates the database.
     let ssc = ss.clone();
@@ -76,6 +76,9 @@ async fn main() -> Result<(), std::io::Error> {
         let wapd = AccessPagedData::new_writer(spd);
 
         let db = Database::new(wapd, if is_master { init::INITSQL } else { "" }, bmap);
+
+        // recover(&db);
+
         if !is_master {
             let _ = sync_tx.send(db.is_new);
         }
@@ -106,6 +109,7 @@ async fn main() -> Result<(), std::io::Error> {
                     println!("Pages updated={updates}");
                 }
             }
+            else { println!("No pages updated"); }            
             let _x = sm.reply.send(sm.st);
         }
     });
@@ -121,6 +125,28 @@ async fn main() -> Result<(), std::io::Error> {
             }
         });
     }
+}
+
+fn _recover( db: &rustdb::DB )
+{
+  let sql = "ALTER FN web.SetDos( uid int ) RETURNS int AS
+BEGIN
+  DECLARE ok int
+  SET ok = SETDOS
+  ( 'u' | uid, 
+     1000, 
+     1000000000000, 
+     1000000000,
+     1000000000000 
+  )
+  IF ok = 0
+  BEGIN
+  END
+  RETURN ok
+END";
+  
+  let mut tr = rustdb::GenTransaction::new();
+  db.run( sql, &mut tr ); 
 }
 
 /// Extra SQL builtin functions.
@@ -165,8 +191,17 @@ struct Args {
     ip: String,
 
     /// Denial of Service Limit
-    #[clap(long, value_parser, default_value_t = 100)]
-    dos: u64,
+    #[clap(long, value_parser, default_value_t = 1000)]
+    dos_count: u64,
+
+    #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
+    dos_read: u64,
+
+    #[clap(long, value_parser, default_value_t = 1_000_000)]
+    dos_cpu: u64,
+
+    #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
+    dos_write: u64,
 
     /// Memory limit for page cache (in MB)
     #[clap(long, value_parser, default_value_t = 100)]
