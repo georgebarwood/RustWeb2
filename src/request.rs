@@ -1,20 +1,3 @@
-/* New thoughts on Dos checking.
-
-(1) Have several measures.
-
-#Requests
-#CPU usage
-#Request IO
-#Response IO
-
-(2) Have builtin call to set limits and user ID ( if someone is logged on ).
-
-(3) If request has a body, need to get user ID before reading body, to get correct budget for reading body.
-
-SETDOS( userid (string), req_count, cpu_limit, req_limit, res_limit )
-
-*/
-
 use crate::share::{Error, ServerTrans, SharedState};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -78,9 +61,6 @@ pub async fn process(
         }
         (header(&st), st.x.rp.output)
     };
-
-    // let _ = w.write_all(&hdrs).await;
-    // let _ = w.write_all(&outp).await;
 
     let budget = r.budget[3];
     write(&mut w, &hdrs, budget, &mut r.used[3]).await?;
