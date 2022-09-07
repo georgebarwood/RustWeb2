@@ -82,26 +82,6 @@ This can be overriden by adding a query parameter "save".
 
 POST requests are assumed to be read-write, this can be overridden by adding a query parameter "readonly".
 
-Arguments and Options
-=====================
-
-USAGE:
-    rustweb2.exe [OPTIONS] <PORT>
-
-ARGS:
-    <PORT>    Port to listen on
-
-OPTIONS:
-        --dos <DOS>        Denial of Service Limit [default: 100]
-    -h, --help             Print help information
-        --ip <IP>          Ip Address to listen on [default: 0.0.0.0]
-        --login <LOGIN>    Login cookies for replication [default: ]
-        --mem <MEM>        Memory limit for page cache (in MB) [default: 100]
-        --rep <REP>        Server to replicate [default: ]
-        --tracemem         Trace memory trimming
-        --tracetime        Trace query time
-    -V, --version          Print version information
-
 Links
 =====
 
