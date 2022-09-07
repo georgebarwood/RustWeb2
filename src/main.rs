@@ -4,10 +4,7 @@ async fn main() -> Result<(), std::io::Error> {
     println!("args={:?}", args);
 
     let listen = format!("{}:{}", args.ip, args.port);
-    // let listen = listen.parse().expect("Error parsing listen address:port");
     let is_master = args.rep.is_empty();
-    let replicate_source = args.rep;
-    let replicate_credentials = args.login;
 
     // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
     let file = Box::new(SimpleFileStorage::new("rustweb.rustdb"));
@@ -41,8 +38,8 @@ async fn main() -> Result<(), std::io::Error> {
         sleep_tx,
         wait_tx,
         is_master,
-        replicate_source,
-        replicate_credentials,
+        replicate_source: args.rep,
+        replicate_credentials: args.login,
         dos_limit: [args.dos_count, args.dos_read, args.dos_cpu, args.dos_write],
         dos: Arc::new(Mutex::new(HashMap::default())),
         tracetime: args.tracetime,
@@ -190,16 +187,19 @@ struct Args {
     #[clap(long, value_parser, default_value = "0.0.0.0")]
     ip: String,
 
-    /// Denial of Service Limit
+    /// Denial of Service Count Limit
     #[clap(long, value_parser, default_value_t = 1000)]
     dos_count: u64,
 
+    /// Denial of Service Read Request Limit
     #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
     dos_read: u64,
 
+    /// Denial of Service CPU Limit
     #[clap(long, value_parser, default_value_t = 100_000)]
     dos_cpu: u64,
 
+    /// Denial of Service Write Response Limit
     #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
     dos_write: u64,
 
