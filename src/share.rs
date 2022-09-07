@@ -24,12 +24,16 @@ pub struct SharedState {
     pub replicate_source: String,
     /// Cookies for replication.
     pub replicate_credentials: String,
-    /// Trace time to process each request.
-    pub tracetime: bool,
     /// Denial of service limit.
     pub dos_limit: u64,
     /// Information for mitigating DoS attacks
     pub dos: Arc<Mutex<HashMap<String, IpInfo>>>,
+
+    /// Trace time to process each request.
+    pub tracetime: bool,
+
+    /// Trace Dos
+    pub tracedos: bool,
 }
 
 #[derive(Debug)]
@@ -61,14 +65,14 @@ impl SharedState {
     pub fn ip_used(&self, ip: &str, amount: u64) -> bool {
         let mut m = self.dos.lock().unwrap();
         if let Some(info) = m.get_mut(ip) {
-            /*
-                        println!(
-                            "ip_used ip={} amount={} used ={}%",
-                            ip,
-                            amount,
-                            (info.used + amount) as f64 * 100f64 / info.limit as f64
-                        );
-            */
+            if self.tracedos {
+                println!(
+                    "ip_used ip={} delta={}% used={}%",
+                    ip,
+                    (amount) as f64 * 100f64 / info.limit as f64,
+                    (info.used + amount) as f64 * 100f64 / info.limit as f64
+                );
+            }
             info.used += amount;
             info.used > info.limit
         } else {
@@ -161,7 +165,7 @@ impl ServerTrans {
         result
     }
 
-    pub fn new_with_state( ss: Arc<SharedState>, ip:String ) -> Self {
+    pub fn new_with_state(ss: Arc<SharedState>, ip: String) -> Self {
         let mut result = Self {
             x: GenTransaction::new(),
             log: true,
@@ -205,19 +209,37 @@ pub struct TransExt {
 impl TransExt {
     fn new() -> Box<Self> {
         Box::new(Self {
-            ss:None,
-            ip:String::new(),
+            ss: None,
+            ip: String::new(),
             tx_email: false,
             sleep: 0,
             trans_wait: false,
         })
     }
 
-    pub fn set_dos( &self, to: u64 )
-    {
-       if let Some(ss) = &self.ss
-       {
-         ss.set_ip_limit( self.ip.clone(), to * 1000_000_000 );
-       }
+    pub fn set_dos(&self, to: u64) {
+        if let Some(ss) = &self.ss {
+            ss.set_ip_limit(self.ip.clone(), to * 1_000_000_000);
+        }
+    }
+}
+
+/// http error
+#[derive(Debug)]
+pub struct Error {
+    pub code: u16,
+}
+
+impl From<std::io::Error> for Error {
+    fn from(_e: std::io::Error) -> Self {
+        Self { code: 500 }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.code)
     }
 }

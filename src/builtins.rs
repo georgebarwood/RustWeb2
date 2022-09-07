@@ -80,7 +80,7 @@ impl CExp<i64> for Sleep {
 fn c_setdos(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[DataKind::Int]);
     let to = c_int(b, &mut args[0]);
-    Box::new(SetDos {to})
+    Box::new(SetDos { to })
 }
 
 /// Compiled call to SETDOS

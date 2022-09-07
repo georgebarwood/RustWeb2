@@ -1,7 +1,5 @@
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
     println!("args={:?}", args);
 
@@ -45,9 +43,10 @@ async fn main() -> Result<()> {
         is_master,
         replicate_source,
         replicate_credentials,
-        tracetime: args.tracetime,
-        dos_limit: args.dos * 1000_000_000,
+        dos_limit: args.dos * 1_000_000_000,
         dos: Arc::new(Mutex::new(HashMap::default())),
+        tracetime: args.tracetime,
+        tracedos: args.tracedos,
     });
 
     if is_master {
@@ -117,8 +116,9 @@ async fn main() -> Result<()> {
         let ssc = ss.clone();
         tokio::spawn(async move {
             // println!("Start process_requests");
-            let _ = request::process(stream, src.ip().to_string(), ssc).await;
-            // println!("End process_requests");
+            if let Err(x) = request::process(stream, src.ip().to_string(), ssc).await {
+                println!("End request process result={:?}", x);
+            }
         });
     }
 }
@@ -165,7 +165,7 @@ struct Args {
     ip: String,
 
     /// Denial of Service Limit
-    #[clap(long, value_parser, default_value_t = 500)]
+    #[clap(long, value_parser, default_value_t = 100)]
     dos: u64,
 
     /// Memory limit for page cache (in MB)
@@ -187,4 +187,8 @@ struct Args {
     /// Trace memory trimming
     #[clap(long, value_parser, default_value_t = false)]
     tracemem: bool,
+
+    /// Trace memory DoS
+    #[clap(long, value_parser, default_value_t = false)]
+    tracedos: bool,
 }

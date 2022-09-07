@@ -1,7 +1,5 @@
-use crate::share::{ServerTrans, SharedState};
-use crate::Result;
+use crate::share::{Error, ServerTrans, SharedState};
 use std::collections::BTreeMap;
-use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -10,57 +8,64 @@ pub async fn process(
     mut stream: tokio::net::TcpStream,
     ip: String,
     ss: Arc<SharedState>,
-) -> Result<()> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let (r, mut w) = stream.split();
     let mut r = Buffer::new(r, ss.clone(), ip.clone());
-    loop {
-        r.reset();
-        let h = Headers::get(&mut r).await?;
-        r.update_used();
 
-        let (hdrs, outp) = {
-            let mut st = ServerTrans::new_with_state(ss.clone(),r.ip.clone());
-            st.readonly = h.method == b"GET" || h.args.get("readonly").is_some();
-            st.x.qy.path = h.path;
-            st.x.qy.params = h.args;
-            st.x.qy.cookies = h.cookies;
-            let (ct, clen) = (&h.content_type, h.content_length);
+    r.reset();
+    let h = Headers::get(&mut r).await?;
+    r.update_used();
 
-            if ct.is_empty() {
-                // No body.
-            } else if ct == b"application/x-www-form-urlencoded" {
-                let clen: usize = clen.parse()?;
-                let bytes = r.read(clen).await?;
-                st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-            } else if is_multipart(ct) {
-                get_multipart(&mut r, &mut st.x.qy.parts).await?;
-            } else {
-                return Err(nos())?;
+    let (hdrs, outp) = {
+        let mut st = ServerTrans::new_with_state(ss.clone(), r.ip.clone());
+
+        st.readonly = h.method == b"GET" || h.args.get("readonly").is_some();
+        st.x.qy.path = h.path;
+        st.x.qy.params = h.args;
+        st.x.qy.cookies = h.cookies;
+        let (ct, clen) = (&h.content_type, h.content_length);
+
+        if ct.is_empty() {
+            // No body.
+        } else if ct == b"application/x-www-form-urlencoded" {
+            let clen: usize = clen.parse()?;
+            let bytes = r.read(clen).await?;
+            st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+        } else if is_multipart(ct) {
+            get_multipart(&mut r, &mut st.x.qy.parts).await?;
+        } else {
+            st.x.rp.status_code = 501;
+        }
+
+        if r.update_used() {
+            st.x.rp.status_code = 429;
+        }
+
+        if st.x.rp.status_code == 200 {
+            // println!("qy={:?}", st.x.qy);
+
+            st = ss.process(st).await;
+
+            let rt = st.run_time.as_micros() as u64;
+
+            if ss.ip_used(&r.ip, rt * 2000_000u64) {
+                st.x.rp.status_code = 429;
+                st.x.rp.output = Vec::new();
             }
+        }
+        (header(&st), st.x.rp.output)
+    };
 
-            if r.update_used() {
-                st.x.rp.status_code = 503;
-            } else {
-                // println!("qy={:?}", st.x.qy);
+    // let _ = w.write_all(&hdrs).await;
+    // let _ = w.write_all(&outp).await;
+    let budget = ss.ip_budget(r.ip.clone());
+    let mut load = write(&mut w, &hdrs, budget).await?;
+    load += write(&mut w, &outp, budget - load).await?;
+    ss.ip_used(&r.ip, load);
 
-                st = ss.process(st).await;
+    ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
 
-                let used = st.run_time.as_micros() as u64;
-                if ss.ip_used(&r.ip, used * used * 1000u64) {
-                    st.x.rp.status_code = 503;
-                    st.x.rp.output = Vec::new();
-                }
-            }
-
-            (header(&st), st.x.rp.output)
-        };
-
-        // Should be timeout on this.
-        let _ = w.write_all(&hdrs).await;
-        let _ = w.write_all(&outp).await;
-
-        ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
-    }
+    Ok(())
 }
 
 /// Get response header.
@@ -96,7 +101,7 @@ struct Headers {
 }
 
 impl Headers {
-    async fn get<'a>(br: &mut Buffer<'a>) -> Result<Headers> {
+    async fn get<'a>(br: &mut Buffer<'a>) -> Result<Headers, Error> {
         let mut r = Self::default();
         br.read_until(b' ', &mut r.method).await?;
         r.method.pop(); // Remove trailing space.
@@ -218,12 +223,12 @@ fn tos(s: &[u8]) -> String {
 
 /// Not enough input.
 fn eof() -> Error {
-    Error::from(ErrorKind::UnexpectedEof)
+    Error { code: 0 }
 }
 
-/// Unknown content type etc.
-fn nos() -> Error {
-    Error::from(ErrorKind::Unsupported)
+/// Too many requests.
+fn tmr() -> Error {
+    Error { code: 429 }
 }
 
 /// Parse cookie header to a map of cookies.
@@ -299,7 +304,7 @@ Upload
 use rustdb::Part;
 
 /// Parse multipart body.
-async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result<()> {
+async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result<(), Error> {
     let mut boundary = Vec::new();
     let n = br.read_until(10, &mut boundary).await?;
     if n < 4 {
@@ -352,7 +357,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result
 }
 
 /// Buffer for reading tcp input stream, with budget check.
-pub struct Buffer<'a> {
+struct Buffer<'a> {
     stream: tokio::net::tcp::ReadHalf<'a>,
     buf: [u8; 2048],
     i: usize,
@@ -401,29 +406,20 @@ impl<'a> Buffer<'a> {
         self.timer = std::time::SystemTime::now();
     }
 
-    async fn fill(&mut self) -> Result<()> {
+    async fn fill(&mut self) -> Result<(), Error> {
         self.i = 0;
         let micros = self.limit / (self.total + 1000);
         let budget = core::time::Duration::from_micros(micros as u64);
         let used = self.timer.elapsed().unwrap();
-
-        /*
-                println!(
-                    "Buffer fill used={:?} budget={:?} limit={} total={}",
-                    used, budget, self.limit, self.total
-                );
-        */
-
         if used > budget {
-            println!("used {:?} exceeded budget {:?}", used, budget);
-            Err(nos())?
+            return Err(tmr());
         }
         let timeout = budget - used;
 
         tokio::select! {
             _ = tokio::time::sleep(timeout) =>
             {
-               Err(nos())?
+               Err(tmr())?
             }
             rd = self.stream.read(&mut self.buf) =>
             {
@@ -447,7 +443,7 @@ impl<'a> Buffer<'a> {
     }
 
     /// Read until delim is found. Returns eof error if input is closed.
-    async fn read_until(&mut self, delim: u8, to: &mut Vec<u8>) -> Result<usize> {
+    async fn read_until(&mut self, delim: u8, to: &mut Vec<u8>) -> Result<usize, Error> {
         let start = to.len();
         loop {
             if self.i == self.n {
@@ -463,7 +459,7 @@ impl<'a> Buffer<'a> {
     }
 
     /// Read specified number of bytes.
-    async fn read(&mut self, n: usize) -> Result<Vec<u8>> {
+    async fn read(&mut self, n: usize) -> Result<Vec<u8>, Error> {
         let mut to = Vec::new();
         loop {
             if self.i == self.n {
@@ -476,5 +472,32 @@ impl<'a> Buffer<'a> {
                 return Ok(to);
             }
         }
+    }
+}
+
+/// Function to write response, with budgete-based timeout.
+async fn write<'a>(
+    w: &mut tokio::net::tcp::WriteHalf<'a>,
+    data: &[u8],
+    budget: u64,
+) -> Result<u64, Error> {
+    if data.is_empty() {
+        return Ok(0);
+    }
+    let timer = std::time::SystemTime::now();
+    let micros = budget / (data.len() as u64 + 1000);
+    let timeout = core::time::Duration::from_micros(micros as u64);
+    tokio::select! {
+        _ = tokio::time::sleep(timeout) =>
+            {
+                Err(tmr())
+            }
+        x = w.write_all(data) =>
+            {
+               x?;
+               let elapsed = timer.elapsed().unwrap();
+               let load = elapsed.as_micros() as u64 * data.len() as u64;
+               Ok(load)
+            }
     }
 }
