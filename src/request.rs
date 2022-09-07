@@ -144,7 +144,7 @@ impl Headers {
                             r.host = tos(line);
                         }
                     }
-                    _ => {
+                    (b'x', b'r') => {
                         if let Some(line) = line_is(line, b"x-real-ip") {
                             let ip = tos(line);
                             br.budget = br.ss.u_budget(ip.clone());
@@ -154,6 +154,7 @@ impl Headers {
                             }
                         }
                     }
+                    _ => {}
                 }
             }
             line0.clear();
@@ -183,7 +184,7 @@ impl Headers {
 }
 
 /// Check whether current line is named header.
-fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a[u8]> {
+fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a [u8]> {
     let n = name.len();
     if line.len() < n + 1 {
         return None;
@@ -196,7 +197,7 @@ fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a[u8]> {
             return None;
         }
     }
-    let mut skip = n+1;
+    let mut skip = n + 1;
     let n = line.len();
     while skip < n && line[skip] == b' ' {
         skip += 1;
