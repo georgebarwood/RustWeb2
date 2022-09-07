@@ -128,25 +128,25 @@ impl Headers {
                 let b2 = lower(line[2]);
                 match (b0, b2) {
                     (b'c', b'o') => {
-                        if let Some(n) = line_is(line, b"cookie") {
-                            r.cookies = cookie_map(line, n);
+                        if let Some(line) = line_is(line, b"cookie") {
+                            r.cookies = cookie_map(line);
                         }
                     }
                     (b'c', b'n') => {
-                        if let Some(n) = line_is(line, b"content-type") {
-                            r.content_type = ltob(line, n).to_vec();
-                        } else if let Some(n) = line_is(line, b"content-length") {
-                            r.content_length = ltos(line, n);
+                        if let Some(line) = line_is(line, b"content-type") {
+                            r.content_type = line.to_vec();
+                        } else if let Some(line) = line_is(line, b"content-length") {
+                            r.content_length = tos(line);
                         }
                     }
                     (b'h', b's') => {
-                        if let Some(n) = line_is(line, b"host") {
-                            r.host = ltos(line, n);
+                        if let Some(line) = line_is(line, b"host") {
+                            r.host = tos(line);
                         }
                     }
                     _ => {
-                        if let Some(n) = line_is(line, b"x-real-ip") {
-                            let ip = ltos(line, n);
+                        if let Some(line) = line_is(line, b"x-real-ip") {
+                            let ip = tos(line);
                             br.budget = br.ss.u_budget(ip.clone());
                             br.uid = ip;
                             if br.budget[0] == 0 {
@@ -183,7 +183,7 @@ impl Headers {
 }
 
 /// Check whether current line is named header.
-fn line_is(line: &[u8], name: &[u8]) -> Option<usize> {
+fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a[u8]> {
     let n = name.len();
     if line.len() < n + 1 {
         return None;
@@ -196,21 +196,12 @@ fn line_is(line: &[u8], name: &[u8]) -> Option<usize> {
             return None;
         }
     }
-    Some(n + 1)
-}
-
-/// Trim header name.
-fn ltob(line: &[u8], mut skip: usize) -> &[u8] {
+    let mut skip = n+1;
     let n = line.len();
     while skip < n && line[skip] == b' ' {
         skip += 1;
     }
-    &line[skip..n]
-}
-
-/// Header value as string.
-fn ltos(line: &[u8], skip: usize) -> String {
-    tos(ltob(line, skip))
+    Some(&line[skip..n])
 }
 
 /// Map upper case char to lower case.
@@ -242,10 +233,10 @@ fn bad() -> Error {
 }
 
 /// Parse cookie header to a map of cookies.
-fn cookie_map(s: &[u8], skip: usize) -> BTreeMap<String, String> {
+fn cookie_map(s: &[u8]) -> BTreeMap<String, String> {
     let mut map = BTreeMap::new();
     let n = s.len();
-    let mut i = skip;
+    let mut i = 0;
 
     while i < n {
         while i < n && s[i] == b' ' {
@@ -335,12 +326,11 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result
                 break;
             }
             let line = &line0[0..n - 2];
-            if let Some(n) = line_is(line, b"content-type") {
-                part.content_type = tos(ltob(line, n));
+            if let Some(line) = line_is(line, b"content-type") {
+                part.content_type = tos(line);
                 // Note: if part content-type is multipart, maybe it should be parsed.
-            } else if let Some(n) = line_is(line, b"content-disposition") {
-                let cd = ltob(line, n);
-                if let Some((name, file_name)) = split_cd(cd) {
+            } else if let Some(line) = line_is(line, b"content-disposition") {
+                if let Some((name, file_name)) = split_cd(line) {
                     part.name = name;
                     part.file_name = file_name;
                 }
