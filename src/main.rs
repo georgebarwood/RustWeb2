@@ -108,7 +108,7 @@ async fn main() -> Result<(), std::io::Error> {
                 if ss.tracetime {
                     println!("Pages updated={updates}");
                 }
-            } else {
+            } else if ss.tracetime {
                 println!("No pages updated");
             }
             let _x = sm.reply.send(sm.st);

@@ -103,7 +103,7 @@ impl SharedState {
     /// Deflate old usage by 10% periodically.
     pub fn u_decay(&self) {
         let mut m = self.dos.lock().unwrap();
-        m.retain(|_ip, info| {
+        m.retain(|_uid, info| {
             let mut nz = false;
             for i in 0..4 {
                 if info.used[i] > 0 {

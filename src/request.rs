@@ -29,8 +29,6 @@ pub async fn process(
     let (r, mut w) = stream.split();
     let mut r = Buffer::new(r, ss.clone(), ip.clone());
 
-    let mut used = [1, 0, 0, 0];
-
     let h = Headers::get(&mut r).await;
     let h = match h {
         Ok(h) => h,
@@ -41,8 +39,8 @@ pub async fn process(
             return Err(e)?;
         }
     };
-    let (hdrs, outp, uid) = {
-        let mut st = ServerTrans::new_with_state(ss.clone(), r.ip.clone());
+    let (hdrs, outp) = {
+        let mut st = ServerTrans::new_with_state(ss.clone(), r.uid.clone());
         let readonly = h.method == b"GET" || h.args.get("readonly").is_some();
         st.x.qy.path = h.path;
         st.x.qy.params = h.args;
@@ -69,27 +67,24 @@ pub async fn process(
                 st.x.rp.status_code = 501;
             }
         }
+        r.read_complete();
 
         if st.x.rp.status_code == 200 {
             st.readonly = readonly;
             // println!("qy={:?} readonly={}", st.x.qy, readonly);
             st = ss.process(st).await;
-            used[2] = st.run_time.as_micros() as u64;
+            r.uid = st.uid.clone();
+            r.used[2] = st.run_time.as_micros() as u64;
         }
-        (header(&st), st.x.rp.output, st.uid)
+        (header(&st), st.x.rp.output)
     };
 
     // let _ = w.write_all(&hdrs).await;
     // let _ = w.write_all(&outp).await;
 
     let budget = r.budget[3];
-    let mut load = write(&mut w, &hdrs, budget).await?;
-    load += write(&mut w, &outp, budget - load).await?;
-
-    used[1] = r.used();
-    used[3] = load;
-    ss.u_inc(&uid, used);
-
+    write(&mut w, &hdrs, budget, &mut r.used[3]).await?;
+    write(&mut w, &outp, budget, &mut r.used[3]).await?;
     ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
 
     Ok(())
@@ -173,7 +168,7 @@ impl Headers {
                         if let Some(n) = line_is(line, b"x-real-ip") {
                             let ip = ltos(line, n);
                             br.budget = br.ss.u_budget(ip.clone());
-                            br.ip = ip;
+                            br.uid = ip;
                             if br.budget[0] == 0 {
                                 return Err(tmr());
                             }
@@ -259,6 +254,11 @@ fn eof() -> Error {
 /// Too many requests.
 fn tmr() -> Error {
     Error { code: 429 }
+}
+
+/// Some other error.
+fn bad() -> Error {
+    Error { code: 400 }
 }
 
 /// Parse cookie header to a map of cookies.
@@ -394,20 +394,22 @@ struct Buffer<'a> {
     n: usize,
     total: u64,
     budget: [u64; 4],
+    used: [u64; 4],
     timer: std::time::SystemTime,
     ss: Arc<SharedState>,
-    ip: String,
+    uid: String,
 }
 
 impl<'a> Drop for Buffer<'a> {
     fn drop(&mut self) {
-        // ToDo : call ss.u_inc
+        self.read_complete();
+        self.ss.u_inc(&self.uid, self.used);
     }
 }
 
 impl<'a> Buffer<'a> {
-    fn new(stream: tokio::net::tcp::ReadHalf<'a>, ss: Arc<SharedState>, ip: String) -> Self {
-        let budget = ss.u_budget(ip.clone());
+    fn new(stream: tokio::net::tcp::ReadHalf<'a>, ss: Arc<SharedState>, uid: String) -> Self {
+        let budget = ss.u_budget(uid.clone());
         Self {
             stream,
             buf: [0; 2048],
@@ -415,20 +417,19 @@ impl<'a> Buffer<'a> {
             n: 0,
             total: 0,
             budget,
+            used: [1, 0, 0, 0],
             timer: std::time::SystemTime::now(),
             ss,
-            ip,
+            uid,
         }
     }
 
-    fn used(&mut self) -> u64 {
-        if self.total == 0 {
-            return 0;
+    fn read_complete(&mut self) {
+        if self.total != 0 {
+            let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
+            self.used[1] = elapsed as u64 * self.total as u64;
+            self.total = 0;
         }
-        let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
-        let result = elapsed as u64 * self.total as u64;
-        self.total = 0;
-        result
     }
 
     async fn fill(&mut self) -> Result<(), Error> {
@@ -504,24 +505,25 @@ async fn write<'a>(
     w: &mut tokio::net::tcp::WriteHalf<'a>,
     data: &[u8],
     budget: u64,
-) -> Result<u64, Error> {
-    if data.is_empty() {
-        return Ok(0);
+    used: &mut u64,
+) -> Result<(), Error> {
+    let mut result = Ok(());
+    if !data.is_empty() {
+        let timer = std::time::SystemTime::now();
+        let micros = (budget - *used) / (data.len() as u64 + 1000);
+        let timeout = core::time::Duration::from_micros(micros as u64);
+        tokio::select! {
+            _ = tokio::time::sleep(timeout) =>
+                {
+                    result = Err(tmr());
+                }
+            x = w.write_all(data) =>
+                {
+                    if let Err(_e) = x { result = Err(bad()); }
+                }
+        }
+        let elapsed = timer.elapsed().unwrap();
+        *used += elapsed.as_micros() as u64 * data.len() as u64;
     }
-    let timer = std::time::SystemTime::now();
-    let micros = budget / (data.len() as u64 + 1000);
-    let timeout = core::time::Duration::from_micros(micros as u64);
-    tokio::select! {
-        _ = tokio::time::sleep(timeout) =>
-            {
-                Err(tmr())
-            }
-        x = w.write_all(data) =>
-            {
-               x?;
-               let elapsed = timer.elapsed().unwrap();
-               let load = elapsed.as_micros() as u64 * data.len() as u64;
-               Ok(load)
-            }
-    }
+    result
 }
