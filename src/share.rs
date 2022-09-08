@@ -8,24 +8,34 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 pub struct SharedState {
     /// Shared storage used for read-only queries.
     pub spd: Arc<rustdb::SharedPagedData>,
+
     /// Map of builtin SQL functions for Database.
     pub bmap: Arc<rustdb::BuiltinMap>,
+
     /// Sender channel for sending queries to server task.
     pub tx: mpsc::Sender<ServerMessage>,
+
     /// For notifying email loop that emails are in Queue ready to be sent.
     pub email_tx: mpsc::UnboundedSender<()>,
+
     /// For setting sleep time.
     pub sleep_tx: mpsc::UnboundedSender<u64>,
-    /// For notifying tasks waiting for transaction.
+
+    /// For notifying tasks waiting for update transaction.
     pub wait_tx: broadcast::Sender<()>,
+
     /// Server is master ( not replicating another database ).
     pub is_master: bool,
+
     /// URL of master server.
     pub replicate_source: String,
+
     /// Cookies for replication.
     pub replicate_credentials: String,
-    /// Denial of service limit.
-    pub dos_limit: [u64; 4],
+
+    /// Denial of service limits.
+    pub dos_limit: UA,
+
     /// Information for mitigating DoS attacks
     pub dos: Arc<Mutex<HashMap<String, UseInfo>>>,
 
@@ -36,11 +46,23 @@ pub struct SharedState {
     pub tracedos: bool,
 }
 
+/// Usage array ( total or limit ).
+pub type UA = [u64; 4];
+
+/// Index into usage array for request read usage.
+pub const U_READ: usize = 1;
+
+/// Index into usage array for CPU usage ( time to process a request ).
+pub const U_CPU: usize = 2;
+
+/// Index into usage array for response write usage .
+pub const U_WRITE: usize = 3;
+
 /// Information kept on usage by each user.
 #[derive(Debug)]
 pub struct UseInfo {
-    used: [u64; 4],
-    limit: [u64; 4],
+    used: UA,
+    limit: UA,
 }
 
 impl UseInfo {
@@ -53,27 +75,27 @@ impl UseInfo {
 }
 
 impl SharedState {
-    pub fn u_budget(&self, uid: String) -> [u64; 4] {
+    pub fn u_budget(&self, uid: String) -> UA {
         let mut m = self.dos.lock().unwrap();
         let info = m.entry(uid).or_insert_with(UseInfo::new);
         if info.limit[0] == 0 {
             info.limit = self.dos_limit;
         }
         let mut result = [0; 4];
-        for i in 0..4 {
+        for (i, item) in result.iter_mut().enumerate() {
             if info.used[i] >= info.limit[i] {
                 return [0; 4];
             }
-            result[i] = info.limit[i] - info.used[i];
+            *item = info.limit[i] - info.used[i];
         }
         result
     }
 
-    pub fn u_inc(&self, uid: &str, amount: [u64; 4]) {
+    pub fn u_inc(&self, uid: &str, amount: UA) {
         let mut m = self.dos.lock().unwrap();
         if let Some(info) = m.get_mut(uid) {
-            for i in 0..4 {
-                info.used[i] += amount[i];
+            for (i, amt) in amount.iter().enumerate() {
+                info.used[i] += *amt;
             }
             if self.tracedos {
                 println!(
@@ -88,7 +110,7 @@ impl SharedState {
         }
     }
 
-    pub fn u_set_limits(&self, u: String, limit: [u64; 4]) -> bool {
+    pub fn u_set_limits(&self, u: String, limit: UA) -> bool {
         let mut m = self.dos.lock().unwrap();
         let info = m.entry(u).or_insert_with(UseInfo::new);
         info.limit = limit;
@@ -244,7 +266,7 @@ impl TransExt {
     }
 
     /// Set limits, returns false if limit exceeded.
-    pub fn set_dos(&self, uid: String, to: [u64; 4]) -> bool {
+    pub fn set_dos(&self, uid: String, to: UA) -> bool {
         if let Some(ss) = &self.ss {
             ss.u_set_limits(uid, to)
         } else {

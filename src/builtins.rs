@@ -107,8 +107,8 @@ impl CExp<i64> for SetDos {
         let mut result = 0;
         let uid = self.uid.eval(ee, d).str().to_string();
         let mut to = [0; 4];
-        for i in 0..4 {
-            to[i] = self.to[i].eval(ee, d) as u64;
+        for (i, item) in to.iter_mut().enumerate() {
+            *item = self.to[i].eval(ee, d) as u64;
         }
         let mut ext = ee.tr.get_extension();
         if let Some(ext) = ext.downcast_mut::<TransExt>() {

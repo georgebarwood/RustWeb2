@@ -1,4 +1,4 @@
-use crate::share::{Error, ServerTrans, SharedState};
+use crate::share::{Error, ServerTrans, SharedState, UA, U_CPU, U_READ, U_WRITE};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -57,14 +57,14 @@ pub async fn process(
             // println!("qy={:?} readonly={}", st.x.qy, readonly);
             st = ss.process(st).await;
             r.uid = st.uid.clone();
-            r.used[2] = st.run_time.as_micros() as u64;
+            r.used[U_CPU] = st.run_time.as_micros() as u64;
         }
         (header(&st), st.x.rp.output)
     };
 
-    let budget = r.budget[3];
-    write(&mut w, &hdrs, budget, &mut r.used[3]).await?;
-    write(&mut w, &outp, budget, &mut r.used[3]).await?;
+    let budget = r.budget[U_WRITE];
+    write(&mut w, &hdrs, budget, &mut r.used[U_WRITE]).await?;
+    write(&mut w, &outp, budget, &mut r.used[U_WRITE]).await?;
     ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
 
     Ok(())
@@ -88,8 +88,7 @@ fn header(st: &ServerTrans) -> Vec<u8> {
     h
 }
 
-// Header parsing.
-
+/// Header parsing.
 #[derive(Default, Debug)]
 struct Headers {
     method: Vec<u8>,
@@ -364,8 +363,8 @@ struct Buffer<'a> {
     i: usize,
     n: usize,
     total: u64,
-    budget: [u64; 4],
-    used: [u64; 4],
+    budget: UA,
+    used: UA,
     timer: std::time::SystemTime,
     ss: Arc<SharedState>,
     uid: String,
@@ -398,14 +397,14 @@ impl<'a> Buffer<'a> {
     fn read_complete(&mut self) {
         if self.total != 0 {
             let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
-            self.used[1] = elapsed as u64 * self.total as u64;
+            self.used[U_READ] = elapsed as u64 * self.total as u64;
             self.total = 0;
         }
     }
 
     async fn fill(&mut self) -> Result<(), Error> {
         self.i = 0;
-        let micros = self.budget[1] / (self.total + 1000);
+        let micros = self.budget[U_READ] / (self.total + 1000);
         let bm = core::time::Duration::from_micros(micros as u64);
         let used = self.timer.elapsed().unwrap();
         if used >= bm {

@@ -1,4 +1,5 @@
 pub const INITSQL : &str = "
+
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
@@ -802,6 +803,30 @@ BEGIN
   SET x = HEADER( 'set-cookie', name | '=' | value | '; ' | expires )
 END
 GO
+CREATE FN [web].[SetDos]( uid int ) RETURNS int AS
+BEGIN
+  DECLARE ok int
+  SET ok = SETDOS
+  ( 'u' | uid, 
+     1000, 
+     1000000000000, 
+     1000000000,
+     1000000000000 
+  )
+  IF ok = 0
+  BEGIN
+     DECLARE x int
+     SET x = STATUSCODE( 429 )
+  END
+  RETURN ok
+END
+GO
+CREATE FN [web].[SetUser]() AS 
+BEGIN 
+  DECLARE dummy int
+  SET dummy = login.user()
+END
+GO
 CREATE FN [web].[Trailer]() AS
 BEGIN
   SELECT '</body></html>'
@@ -887,8 +912,7 @@ BEGIN
     SET result |= '|''<TD' | CASE WHEN type % 8 != 2 THEN ' align=right' ELSE '' END | '>''|'
       | CASE 
         WHEN df != '' THEN df | '(' | col | ')'
-        WHEN nf != '' 
-        THEN '''<a href=\"/ShowRow?t=' | ref | ba | '&k=''|' | col | '|''\">''|' | nf | '(' | col | ')' | '|''</a>''' 
+        WHEN nf != '' THEN '''<a href=\"/ShowRow?' | browse.tablearg(ref) | '&k=''|' | col | '|''' | ba | '\">''|' | nf | '(' | col | ')' | '|''</a>''' 
         ELSE col
         END,
         th = th | '<TH>' | CASE WHEN label != '' THEN label ELSE colName END
@@ -896,7 +920,7 @@ BEGIN
   DECLARE kcol string SET kcol = sys.QuoteName(Name) FROM sys.Column WHERE Id = colId
   RETURN 
    'SELECT ''<TABLE><TR><TH>' | th | ''' '
-   | 'SELECT ' | '''<TR><TD><a href=\"ShowRow?' | browse.tablearg(table) | '&k=''| Id | ''' | ba | '\">Show</a> '''
+   | 'SELECT ' | '''<TR><TD><a href=\"ShowRow?' | browse.tablearg(table) | '&k=''| Id | ''\">Show</a> '''
      | result | ' FROM ' | sys.TableName( table ) | ' WHERE ' | kcol | ' = ' | k | CASE WHEN ob != '' THEN ' ORDER BY ' | ob ELSE '' END
    | ' SELECT ''</TABLE>'''
 END
@@ -1151,7 +1175,7 @@ BEGIN
       | '''<p>' | colname | ': '' | '
       | CASE 
         WHEN df != '' THEN df | '(' | col | ')'
-        WHEN nf != '' THEN '''<a href=\"/ShowRow?' | browse.tablearg(ref) | ba | '&k=''|' | col | '|''\">''|' | nf | '(' | col | ')' | '|''</a>''' 
+        WHEN nf != '' THEN '''<a href=\"/ShowRow?' | browse.tablearg(ref)| '&k=''|' | col | '|''' | ba | '\">''|' | nf | '(' | col | ')' | '|''</a>''' 
         ELSE col
         END
   END
@@ -1316,12 +1340,25 @@ CREATE FN [handler].[/]() AS
 BEGIN 
    EXEC web.pubhead('Home')
    
-   SELECT '
-<div class=outer><div>
-<h1>Some website</h1>
-<p>Welcome to my website.
-</div></div>
+DECLARE cart string SET cart = web.Query('cart')
+DECLARE hash string SET hash = web.Query('hash')
+
+SELECT '<h1>The Shop</h1>
+
+<p>Get your meat here!
+
+<p>Tel: 04232
+
 '
+SELECT '<p>'
+  | ' <a href=\"/ShowProduct?p=' | Id 
+  | '&cart=' | cart
+  | '&hash=' | hash
+  |  '\">' | Name | ' £' | [Price] | ' </a>'
+FROM shop.product
+
+   IF cart != '' SELECT '<p><a href=\"ShowCart?cart=' | PARSEINT(cart) | '\">View Shopping Cart</a>'
+
    EXEC web.pubtrail()
 END
 GO
@@ -1340,8 +1377,6 @@ BEGIN
     SET ex = EXCEPTION()
     IF ex = '' 
     BEGIN
-      -- DECLARE ba string SET ba = browse.backargs()
-      -- EXEC web.Redirect( 'ShowRow?' | browse.tablearg(t) | '&k=' | LASTID() | ba )
       EXEC web.Redirect( browse.backurl() )       
       RETURN 
     END
@@ -1402,7 +1437,7 @@ BEGIN
   IF web.Form( '$submit' ) != '' 
   BEGIN
     EXECUTE( browse.UpdateSql( tid, c ) ) 
-    EXEC web.Redirect( 'ShowTable?k=' | t )
+    EXEC web.Redirect( browse.backurl() )  
   END
   ELSE
   BEGIN
@@ -1827,6 +1862,10 @@ BEGIN
 
    EXEC web.Head('System Menu')
    SELECT '
+<p>Maybe develop a CLI program to execute SQL queries (useful for recovery if web interface is broken etc).
+<br>Read some lines, until blank line is entered, execute it, output results, etc.
+<p>Automate security init on new database ( have password parameter, generate salt ).
+
 <p><a href=\"/ShowTable?s=dbo&n=Cust\">Customers</a> | <a href=\"/OrderSummary\">Order Summary</a>
 <p><a target=_blank href=\"/\">Public Site Home Page</a>
 <h3>System</h3>
@@ -1844,6 +1883,8 @@ BEGIN
 
    EXEC web.Trailer()
 END
+GO
+CREATE FN [handler].[/MyPage]() AS BEGIN END
 GO
 CREATE FN [handler].[/OrderSummary]() AS
 BEGIN
@@ -1924,6 +1965,74 @@ BEGIN
     SELECT '<form method=post><p>Enter password: <input name=pw><input type=submit></form>'
     EXEC web.Trailer()
   END
+END
+GO
+CREATE FN [handler].[/ShowCart]() AS 
+BEGIN 
+   EXEC web.pubhead('Shopping Cart')
+
+   DECLARE cart string SET cart = web.Query('cart')
+   DECLARE cartid int IF cart != '' SET cartid = PARSEINT(cart)
+
+   IF web.Form('q') != ''
+   BEGIN
+     DECLARE quantity int SET quantity = PARSEINT(web.Form('q'))
+     DECLARE product int SET product = PARSEINT(web.Form('p'))
+   
+     IF cart = '' 
+     BEGIN
+       INSERT INTO shop.cart(Created) VALUES (  date .Ticks() )
+       SET cartid = LASTID()
+     END
+     ELSE SET cartid = PARSEINT(cart)
+     SET cart = '' | cartid
+
+     DECLARE item int
+     SET item = Id FROM shop.item WHERE Cart = cartid AND Product = product
+
+     IF item = 0
+     BEGIN
+       INSERT INTO shop.item( Cart, Product, Quantity ) VALUES( cartid, product, 0 )
+       SET item = LASTID()
+     END
+
+     UPDATE shop.item SET Quantity = Quantity + quantity WHERE Id = item
+   END
+
+   SELECT '<h1>Shopping Cart</h1><table><tr><td>Product<td>Quantity'
+   SELECT '<tr><td>' | shop.ProductName(Product) | '<td align=right>' | Quantity
+   FROM shop.item WHERE Cart = cartid
+
+   SELECT '</table>'
+
+   SELECT '<p><a href=\"/?cart=' | cartid | '\">Continue Shopping</a>'
+   SELECT '<p><a href=\"/\">New Cart</a>'
+
+   EXEC web.pubtrail()
+END
+GO
+CREATE FN [handler].[/ShowProduct]() AS 
+BEGIN 
+  DECLARE p int SET p = PARSEINT( web.Query('p') )
+  DECLARE cart string SET cart = web.Query('cart')
+
+  DECLARE name string SET name = Name FROM shop.product WHERE Id = p
+
+  EXEC web.pubhead(name)
+
+  SELECT '
+<h1>' | name | '</h1>
+<form method=post action=ShowCart?cart=' | cart | '>
+<input type=hidden name=p value=' | p | '>
+<p>Quantity<input name=q type=number value=1>
+<p><input type=submit value=\"Add to Cart\">
+</form>
+<p><a href=\"/?cart=' | cart | '\">Continue Shopping</a>
+<p><a href=\"/\">New Cart</a>'
+
+  EXEC web.pubtrail()
+  
+
 END
 GO
 CREATE FN [handler].[/ShowRow]() AS 
@@ -2054,6 +2163,7 @@ INSERT INTO [dbo].[Cust](Id,[FirstName],[LastName],[Age],[City],[x]) VALUES
 (6,'Ron','Williams',49,'',15)
 (7,'Ben','Johnson',0,'',0)
 (8,'Alex','Barwood',63,'',101)
+(9,'George','Barwood',0,'GLOUCESTER',10)
 GO
 
 INSERT INTO [dbo].[Order](Id,[Cust],[Total],[Date],[Info]) VALUES 
@@ -2255,26 +2365,47 @@ CREATE TABLE [login].[user]([Name] string,[HashedPassword] binary)
 GO
 CREATE FN [login].[get]( role int ) RETURNS int AS
 BEGIN
-  /* Get the current logged in user. Note: role is not yet checked */
-
-  DECLARE username string SET username = web.Form('username')
+  /* Get the current logged in user, if none, output login form. Note: role is not yet checked */
 
   /*
      Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
+     In addition, the salt string in login.Hash should be changed.
   */
   RETURN 1 -- Login disabled.
+
+  DECLARE uid int
+  SET uid = login.user()
+  IF uid = 0
+  BEGIN
+    EXEC web.Head( 'Login' )
+    SELECT '<form method=post>User Name <input name=username><br>Password <input type=password name=password><br><input type=submit value=Login></form>'
+    EXEC web.Trailer()
+  END
+  RETURN uid
+END
+GO
+CREATE FN [login].[hash](s string) RETURNS binary AS
+BEGIN
+  SET result = ARGON(s,'pomesoft saltiness')
+END
+GO
+CREATE FN [login].[user]() RETURNS int AS
+BEGIN
+  DECLARE username string SET username = web.Form('username')
+  DECLARE uid int
 
   IF username != ''
   BEGIN
     DECLARE password string SET password = web.Form('password')
     SET result = Id FROM login.user WHERE Name = username
     DECLARE hpw binary SET hpw = login.hash( password|result )
-    SET result = Id FROM login.user WHERE Id = result AND HashedPassword = hpw
-    IF result > 0
+    SET uid = Id FROM login.user WHERE Id = result AND HashedPassword = hpw
+    IF uid > 0
     BEGIN
-      EXEC web.SetCookie( 'uid', '' | result, '' )
+      EXEC web.SetCookie( 'uid', '' | uid, '' )
       EXEC web.SetCookie( 'hpw', '' | hpw, '' )
-      RETURN result
+      IF web.SetDos(uid) = 0 RETURN 0
+      RETURN uid
     END
   END
 
@@ -2283,21 +2414,15 @@ BEGIN
 
   IF uids != ''
   BEGIN
-    DECLARE uid int SET uid = PARSEINT(uids)
+    SET uid = PARSEINT(uids)
     DECLARE hpwt binary SET hpwt = HashedPassword FROM login.user WHERE Id = uid
-    IF hpwf = '' | hpwt RETURN uid
+    IF hpwf = '' | hpwt 
+    BEGIN
+      IF web.SetDos(uid) = 0 RETURN 0
+      RETURN uid
+    END
   END
-
-  EXEC web.Head( 'Login' )
-  SELECT '<form method=post>User Name <input name=username><br>Password <input type=password name=password><br><input type=submit value=Login></form>'
-  EXEC web.Trailer()
-
   RETURN 0
-END
-GO
-CREATE FN [login].[hash](s string) RETURNS binary AS
-BEGIN
-  SET result = ARGON(s,'pomesoft saltiness')
 END
 GO
 INSERT INTO [login].[user](Id,[Name],[HashedPassword]) VALUES 
@@ -2353,6 +2478,35 @@ CREATE SCHEMA [log]
 CREATE TABLE [log].[Transaction]([data] binary) 
 GO
 INSERT INTO [log].[Transaction](Id,[data]) VALUES 
+GO
+
+--############################################
+CREATE SCHEMA [shop]
+CREATE TABLE [shop].[cart]([Created] int) 
+GO
+CREATE TABLE [shop].[item]([Cart] int,[Product] int,[Quantity] int) 
+GO
+CREATE TABLE [shop].[product]([Name] string,[Price] int) 
+GO
+CREATE FN [shop].[CartName](id int) RETURNS string AS 
+BEGIN 
+  SET result = date.MicroSecToString(Created) FROM shop.cart WHERE Id = id
+END
+GO
+CREATE FN [shop].[ProductName](id int) RETURNS string AS 
+BEGIN 
+  SET result = Name FROM shop.product WHERE Id = id
+END
+GO
+INSERT INTO [shop].[cart](Id,[Created]) VALUES 
+GO
+
+INSERT INTO [shop].[item](Id,[Cart],[Product],[Quantity]) VALUES 
+GO
+
+INSERT INTO [shop].[product](Id,[Name],[Price]) VALUES 
+(1,'Four Lamb Chops',6)
+(2,'Beef Mince - 400g',7)
 GO
 
 DECLARE tid int, sid int, cid int
@@ -2497,4 +2651,29 @@ GO
 DECLARE tid int, sid int, cid int
 SET sid = Id FROM sys.Schema WHERE Name = 'log'
 SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'Transaction'
+GO
+DECLARE tid int, sid int, cid int
+SET sid = Id FROM sys.Schema WHERE Name = 'shop'
+SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'cart'
+INSERT INTO browse.Table(Id,NameFunction, SelectFunction, DefaultOrder, Title, Description, Role) 
+VALUES (tid,'shop.CartName','','','','',0)
+SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Created'
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputFunction],[InputRows],[Style],[DisplayFunction],[ParseFunction]) 
+VALUES (cid, 0,'','',0,'',0,'',0,0,'date.MicroSecToString','')
+GO
+DECLARE tid int, sid int, cid int
+SET sid = Id FROM sys.Schema WHERE Name = 'shop'
+SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'item'
+SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Cart'
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputFunction],[InputRows],[Style],[DisplayFunction],[ParseFunction]) 
+VALUES (cid, 0,'','',24,'',0,'',0,0,'','')
+SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Product'
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputFunction],[InputRows],[Style],[DisplayFunction],[ParseFunction]) 
+VALUES (cid, 0,'','',23,'',0,'',0,0,'','')
+GO
+DECLARE tid int, sid int, cid int
+SET sid = Id FROM sys.Schema WHERE Name = 'shop'
+SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'product'
+INSERT INTO browse.Table(Id,NameFunction, SelectFunction, DefaultOrder, Title, Description, Role) 
+VALUES (tid,'shop.ProductName','','','','',0)
 GO";
