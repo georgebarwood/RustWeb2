@@ -147,16 +147,11 @@ impl SharedState {
             // Readonly request, use read-only copy of database.
             let spd = self.spd.clone();
             let bmap = self.bmap.clone();
-            let tracetime = self.tracetime;
             let task = tokio::task::spawn_blocking(move || {
                 let apd = rustdb::AccessPagedData::new_reader(spd);
                 let db = rustdb::Database::new(apd, "", bmap);
                 let sql = st.x.qy.sql.clone();
-                if tracetime {
-                    db.run_timed(&sql, &mut st.x);
-                } else {
-                    db.run(&sql, &mut st.x);
-                }
+                db.run(&sql, &mut st.x);
                 st
             });
             task.await.unwrap()
@@ -183,6 +178,9 @@ impl SharedState {
                    _ = wait_rx.recv() => {}
                    _ = tokio::time::sleep(Duration::from_secs(600)) => {}
                 }
+            }
+            if ext.to_pdf {
+                st.to_pdf();
             }
         }
         st.x.set_extension(ext);
@@ -226,6 +224,14 @@ impl ServerTrans {
         result.x.ext = ext;
         result
     }
+
+    fn to_pdf(&mut self) {
+        let source = &self.x.rp.output;
+        let mut w = pdf_min::Writer::default();
+        pdf_min::html(&mut w, source);
+        w.finish();
+        self.x.rp.output = w.b.b;
+    }
 }
 
 impl Default for ServerTrans {
@@ -252,6 +258,8 @@ pub struct TransExt {
     pub sleep: u64,
     /// Signals wait for new transaction to be logged
     pub trans_wait: bool,
+    /// Transform html output to pdf.
+    pub to_pdf: bool,
 }
 
 impl TransExt {
@@ -262,6 +270,7 @@ impl TransExt {
             tx_email: false,
             sleep: 0,
             trans_wait: false,
+            to_pdf: false,
         })
     }
 

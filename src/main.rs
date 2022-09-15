@@ -82,12 +82,7 @@ async fn main() -> Result<(), std::io::Error> {
         loop {
             let mut sm = rx.blocking_recv().unwrap();
             let sql = sm.st.x.qy.sql.clone();
-            if ss.tracetime {
-                db.run_timed(&sql, &mut sm.st.x);
-            } else {
-                db.run(&sql, &mut sm.st.x);
-            }
-
+            db.run(&sql, &mut sm.st.x);
             if sm.st.log && db.changed() {
                 if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
                     // Append serialised transaction to log.Transaction table
