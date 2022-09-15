@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "0.8.0"
+version = "0.10.0"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ repository = "https://github.com/georgebarwood/rustweb"
 
 [dependencies]
 #rustdb = { path = "../rustdb" } 
-rustdb = { version = "2.15.1" }
+rustdb = { version = "3.0.0" }
 rustc-hash = "1.1.0"
 
 tokio = { version = "1.13.0", features = ["macros","rt-multi-thread"] }
@@ -27,6 +27,7 @@ reqwest = "0.11.11"
 lettre = { version = "0.10.1" }
 flate3 = "0.1.21"
 argon2rs = "0.2.5"
+pdf-min = "0.1.2"
 
 #console-subscriber = { path = "../console-main/console-subscriber" }
 #axum-debug = "0.2.0"
