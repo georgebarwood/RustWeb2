@@ -1,8 +1,8 @@
 use crate::share::{Error, ServerTrans, SharedState, UA, U_CPU, U_READ, U_WRITE};
+use rustdb::Transaction;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use rustdb::Transaction;
 
 /// Process http requests.
 pub async fn process(
@@ -59,14 +59,14 @@ pub async fn process(
             st = ss.process(st).await;
             r.uid = st.uid.clone();
             r.used[U_CPU] = st.run_time.as_micros() as u64;
-            if ss.tracetime
-            {
-               println!( "run path={} time={} micro sec.",
-                 st.x.arg(0, ""),
-                 st.run_time.as_micros() 
-               );
+            if ss.tracetime {
+                println!(
+                    "run {} time={}µs updates={}",
+                    st.x.arg(0, ""),
+                    st.run_time.as_micros(),
+                    st.updates
+                );
             }
-          
         }
         (header(&st), st.x.rp.output)
     };

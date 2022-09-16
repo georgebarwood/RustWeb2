@@ -160,6 +160,7 @@ impl SharedState {
             let _ = self.tx.send(ServerMessage { st, reply }).await;
             rx.await.unwrap()
         };
+        if st.updates > 0 { let _ = self.wait_tx.send(()); }
         st.run_time = start.elapsed().unwrap();
 
         let ext = st.x.get_extension();
@@ -180,7 +181,7 @@ impl SharedState {
                 }
             }
             if ext.to_pdf {
-                st.to_pdf();
+                st.convert_to_pdf();
             }
         }
         st.x.set_extension(ext);
@@ -194,6 +195,7 @@ pub struct ServerTrans {
     pub log: bool,
     pub readonly: bool,
     pub run_time: core::time::Duration,
+    pub updates: usize,
     pub uid: String,
 }
 
@@ -204,6 +206,7 @@ impl ServerTrans {
             log: true,
             readonly: false,
             run_time: Duration::from_micros(0),
+            updates: 0,
             uid: String::new(),
         };
         result.x.ext = TransExt::new();
@@ -216,6 +219,7 @@ impl ServerTrans {
             log: true,
             readonly: false,
             run_time: Duration::from_micros(0),
+            updates: 0,
             uid: String::new(),
         };
         let mut ext = TransExt::new();
@@ -225,7 +229,7 @@ impl ServerTrans {
         result
     }
 
-    fn to_pdf(&mut self) {
+    fn convert_to_pdf(&mut self) {
         let source = &self.x.rp.output;
         let mut w = pdf_min::Writer::default();
         pdf_min::html(&mut w, source);

@@ -21,7 +21,7 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
         st.log = false;
         st.x.qy.sql = Arc::new(sql);
         state.process(st).await;
-        println!("New slave database initialised");
+        println!("New replicated database initialised");
     }
     loop {
         let tid = {
@@ -34,9 +34,9 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
         let ser = rget(state.clone(), &url).await;
         if !ser.is_empty() {
             let mut st = ServerTrans::new();
-            st.x.qy = rmp_serde::from_slice(&ser).unwrap();
+            st.x.qy = bincode::deserialize(&ser).unwrap();
             state.process(st).await;
-            println!("Slave database updated Transaction Id={tid}");
+            println!("Replicated database updated Transaction Id={tid}");
         }
     }
 }

@@ -65,10 +65,7 @@ async fn main() -> Result<(), std::io::Error> {
     tokio::spawn(async move { tasks::u_decay_loop(ssc).await });
 
     // Start the task that updates the database.
-    let ssc = ss.clone();
     thread::spawn(move || {
-        let ss = ssc;
-
         // Get write-access to database ( there will only be one of these ).
         let wapd = AccessPagedData::new_writer(spd);
 
@@ -86,7 +83,7 @@ async fn main() -> Result<(), std::io::Error> {
             if sm.st.log && db.changed() {
                 if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
                     // Append serialised transaction to log.Transaction table
-                    let ser = rmp_serde::to_vec(&sm.st.x.qy).unwrap();
+                    let ser = bincode::serialize(&sm.st.x.qy).unwrap();
                     let ser = Value::RcBinary(Rc::new(ser));
                     let mut row = t.row();
                     row.id = t.alloc_id() as i64;
@@ -94,15 +91,7 @@ async fn main() -> Result<(), std::io::Error> {
                     t.insert(&db, &mut row);
                 }
             }
-            let updates = db.save();
-            if updates > 0 {
-                let _ = ss.wait_tx.send(());
-                if ss.tracetime {
-                    println!("Pages updated={updates}");
-                }
-            } else if ss.tracetime {
-                println!("No pages updated");
-            }
+            sm.st.updates = db.save();
             let _x = sm.reply.send(sm.st);
         }
     });
