@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -21,7 +21,7 @@ clap = { version = "3.2.17", features = ["derive"] }
 mimalloc = { version = "0.1.26", default-features = false }
 
 serde = { version = "1.0.142", features = ["derive","rc"] }
-rmp-serde = "1.1.0"
+
 reqwest = "0.11.11"
 
 lettre = { version = "0.10.1" }
@@ -29,5 +29,7 @@ flate3 = "0.1.21"
 argon2rs = "0.2.5"
 pdf-min = "0.1.2"
 
+bincode = "1.3.3"
+
 #console-subscriber = { path = "../console-main/console-subscriber" }
-#axum-debug = "0.2.0"
+
