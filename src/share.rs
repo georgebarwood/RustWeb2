@@ -160,7 +160,9 @@ impl SharedState {
             let _ = self.tx.send(ServerMessage { st, reply }).await;
             rx.await.unwrap()
         };
-        if st.updates > 0 { let _ = self.wait_tx.send(()); }
+        if st.updates > 0 {
+            let _ = self.wait_tx.send(());
+        }
         st.run_time = start.elapsed().unwrap();
 
         let ext = st.x.get_extension();
@@ -200,28 +202,25 @@ pub struct ServerTrans {
 }
 
 impl ServerTrans {
-    pub fn new() -> Self {
-        let mut result = Self {
+    fn make() -> Self {
+        Self {
             x: GenTransaction::new(),
             log: true,
             readonly: false,
             run_time: Duration::from_micros(0),
             updates: 0,
             uid: String::new(),
-        };
+        }
+    }
+
+    pub fn new() -> Self {
+        let mut result = Self::make();
         result.x.ext = TransExt::new();
         result
     }
 
     pub fn new_with_state(ss: Arc<SharedState>, ip: String) -> Self {
-        let mut result = Self {
-            x: GenTransaction::new(),
-            log: true,
-            readonly: false,
-            run_time: Duration::from_micros(0),
-            updates: 0,
-            uid: String::new(),
-        };
+        let mut result = Self::make();
         let mut ext = TransExt::new();
         ext.ss = Some(ss);
         ext.uid = ip;

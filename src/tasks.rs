@@ -1,9 +1,9 @@
-use crate::share::*;
+use crate::share::{ServerTrans, SharedState};
 use rustdb::{AccessPagedData, Database};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
-/// Task for calling ip_decay every 10 seconds.
+/// Task for calling u_decay every 10 seconds.
 pub async fn u_decay_loop(ss: Arc<SharedState>) {
     loop {
         tokio::time::sleep(core::time::Duration::from_secs(10)).await;

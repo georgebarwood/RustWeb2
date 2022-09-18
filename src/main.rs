@@ -22,7 +22,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     let bmap = Arc::new(builtins::get_bmap());
 
-    // Construct task communication channels.
+    // Construct tokio task communication channels.
     let (tx, mut rx) = mpsc::channel::<share::ServerMessage>(1);
     let (email_tx, email_rx) = mpsc::unbounded_channel::<()>();
     let (sleep_tx, sleep_rx) = mpsc::unbounded_channel::<u64>();
@@ -47,20 +47,20 @@ async fn main() -> Result<(), std::io::Error> {
     });
 
     if is_master {
-        // Start the email task.
+        // Start the task that sends emails
         let ssc = ss.clone();
         tokio::spawn(async move { tasks::email_loop(email_rx, ssc).await });
 
-        // Start the sleep task.
+        // Start the task that calls timed.Run
         let ssc = ss.clone();
         tokio::spawn(async move { tasks::sleep_loop(sleep_rx, ssc).await });
     } else {
-        // Start the sync task.
+        // Start the database reeplication task.
         let ssc = ss.clone();
         tokio::spawn(async move { tasks::sync_loop(sync_rx, ssc).await });
     }
 
-    // Start the ip_decay task.
+    // Start the task that regularly decreases usage values.
     let ssc = ss.clone();
     tokio::spawn(async move { tasks::u_decay_loop(ssc).await });
 
@@ -68,11 +68,7 @@ async fn main() -> Result<(), std::io::Error> {
     thread::spawn(move || {
         // Get write-access to database ( there will only be one of these ).
         let wapd = AccessPagedData::new_writer(spd);
-
         let db = Database::new(wapd, if is_master { init::INITSQL } else { "" }, bmap);
-
-        // recover(&db);
-
         if !is_master {
             let _ = sync_tx.send(db.is_new);
         }
@@ -96,12 +92,12 @@ async fn main() -> Result<(), std::io::Error> {
         }
     });
 
+    // Process http requests.
     let listener = tokio::net::TcpListener::bind(listen).await?;
     loop {
         let (stream, src) = listener.accept().await?;
         let ssc = ss.clone();
         tokio::spawn(async move {
-            // println!("Start process_requests");
             if let Err(x) = request::process(stream, src.ip().to_string(), ssc).await {
                 println!("End request process result={:?}", x);
             }
@@ -109,37 +105,16 @@ async fn main() -> Result<(), std::io::Error> {
     }
 }
 
-fn _recover(db: &rustdb::DB) {
-    let sql = "ALTER FN web.SetDos( uid int ) RETURNS int AS
-BEGIN
-  DECLARE ok int
-  SET ok = SETDOS
-  ( 'u' | uid, 
-     1000, 
-     1000000000000, 
-     1000000000,
-     1000000000000 
-  )
-  IF ok = 0
-  BEGIN
-  END
-  RETURN ok
-END";
-
-    let mut tr = rustdb::GenTransaction::new();
-    db.run(sql, &mut tr);
-}
-
-/// Extra SQL builtin functions.
-pub mod builtins;
-/// SQL initialisation string.
-pub mod init;
-/// Async request processing.
+/// http request processing.
 pub mod request;
 /// Shared data structures.
 pub mod share;
 /// Tasks for email, sync etc.
 pub mod tasks;
+/// Extra SQL builtin functions.
+pub mod builtins;
+/// SQL initialisation string.
+pub mod init;
 
 use mimalloc::MiMalloc;
 use rustc_hash::FxHashMap as HashMap;
