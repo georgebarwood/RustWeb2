@@ -58,10 +58,12 @@ pub const U_CPU: usize = 2;
 /// Index into usage array for response write usage .
 pub const U_WRITE: usize = 3;
 
-/// Information kept on usage by each user.
+/// Information kept on usage for each user.
 #[derive(Debug)]
 pub struct UseInfo {
+    /// Running totals of amount of CPU/IO etc. used.
     used: UA,
+    /// Limits on usage.
     limit: UA,
 }
 
@@ -101,10 +103,10 @@ impl SharedState {
                 println!(
                     "uid={} Count={}% Read={}% Cpu={}% Write={}%",
                     uid,
-                    100f64 * info.used[0] as f64 / info.limit[0] as f64,
-                    100f64 * info.used[1] as f64 / info.limit[1] as f64,
-                    100f64 * info.used[2] as f64 / info.limit[2] as f64,
-                    100f64 * info.used[3] as f64 / info.limit[3] as f64,
+                    100. * info.used[0] as f32 / info.limit[0] as f32,
+                    100. * info.used[1] as f32 / info.limit[1] as f32,
+                    100. * info.used[2] as f32 / info.limit[2] as f32,
+                    100. * info.used[3] as f32 / info.limit[3] as f32,
                 );
             }
         }

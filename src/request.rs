@@ -11,7 +11,7 @@ pub async fn process(
     ss: Arc<SharedState>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (r, mut w) = stream.split();
-    let mut r = Buffer::new(r, ss.clone(), ip.clone());
+    let mut r = Buffer::new(r, ss.clone(), ip);
 
     let h = Headers::get(&mut r).await;
     let h = match h {

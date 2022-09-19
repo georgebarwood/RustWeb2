@@ -161,6 +161,7 @@ impl CExp<i64> for TransWait {
     }
 }
 
+/// Compile call to TOPDF
 fn c_topdf(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
     Box::new(ToPdf {})
