@@ -24,11 +24,9 @@ Initially login security is disabled. To enable it
 
 (1) Edit the function login.hash and change the salt string.
 
-(2) Create a record in login.user.
+(2) Use the Logins Menu link to set add a login user and set password.
 
-(3) Use the Logins Menu link to set a password.
-
-(4) Edit the function login.get ( see instructions included there ).
+(3) Edit the function login.get ( see instructions included there ).
 
 Database replication
 ====================
