@@ -20,8 +20,8 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
         let mut st = ServerTrans::new();
         st.log = false;
         st.x.qy.sql = Arc::new(sql);
-        state.process(st).await;
-        println!("New replicated database initialised");
+        st = state.process(st).await;
+        println!("New replicated database initialised error={}", &st.x.rp.err);
     }
     loop {
         let tid = {

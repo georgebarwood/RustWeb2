@@ -1,5 +1,5 @@
 use crate::share::{Error, ServerTrans, SharedState, UA, U_CPU, U_READ, U_WRITE};
-use rustdb::Transaction;
+use rustdb::{gentrans::GenQuery, Transaction};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -46,7 +46,7 @@ pub async fn process(
                 let bytes = r.read(clen).await?;
                 st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
             } else if is_multipart(ct) {
-                get_multipart(&mut r, &mut st.x.qy.parts).await?;
+                get_multipart(&mut r, &mut st.x.qy).await?;
             } else {
                 st.x.rp.status_code = 501;
             }
@@ -314,7 +314,7 @@ Upload
 use rustdb::Part;
 
 /// Parse multipart body.
-async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result<(), Error> {
+async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), Error> {
     let mut boundary = Vec::new();
     let n = br.read_until(10, &mut boundary).await?;
     if n < 4 {
@@ -359,8 +359,13 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, parts: &mut Vec<Part>) -> Result
                 }
             }
         }
-        part.data = Arc::new(data);
-        parts.push(part);
+        if part.content_type.is_empty() {
+            let value = String::from_utf8(data).unwrap();
+            q.form.insert(part.name, value);
+        } else {
+            part.data = Arc::new(data);
+            q.parts.push(part);
+        }
     }
     Ok(())
 }

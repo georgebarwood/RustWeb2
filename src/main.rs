@@ -105,16 +105,16 @@ async fn main() -> Result<(), std::io::Error> {
     }
 }
 
+/// Extra SQL builtin functions.
+pub mod builtins;
+/// SQL initialisation string.
+pub mod init;
 /// http request processing.
 pub mod request;
 /// Shared data structures.
 pub mod share;
 /// Tasks for email, sync etc.
 pub mod tasks;
-/// Extra SQL builtin functions.
-pub mod builtins;
-/// SQL initialisation string.
-pub mod init;
 
 use mimalloc::MiMalloc;
 use rustc_hash::FxHashMap as HashMap;
