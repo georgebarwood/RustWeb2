@@ -1,4 +1,4 @@
-pub const INITSQL : &str = "
+﻿pub const INITSQL : &str = "
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
@@ -874,7 +874,7 @@ GO
 CREATE FN [web].[SetContentType]( ct string ) AS
 BEGIN
   DECLARE x int
-  SET x = HEADER( 'contenttype', ct )
+  SET x = HEADER( 'Content-Type', ct )
 END
 GO
 
@@ -2576,7 +2576,7 @@ CREATE FN [handler].[/ScriptExact]() AS
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
 
-  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
 
   DECLARE t int
   FOR t = Id FROM sys.Table
@@ -2591,7 +2591,7 @@ CREATE FN [handler].[/ScriptSchema]() AS BEGIN
   DECLARE sname string SET sname = web.Query('s')
   DECLARE s int SET s = Id FROM sys.Schema WHERE Name = sname
 
-  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
 
   DECLARE mode int SET mode = CASE WHEN sys.IncludeSchema(1,sname) THEN 1 ELSE 2 END
 
@@ -2606,7 +2606,7 @@ CREATE FN [handler].[/ScriptSystem]() AS
 BEGIN 
   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
 
-  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
 
   DECLARE mode int SET mode = 2
 

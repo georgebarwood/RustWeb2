@@ -145,53 +145,53 @@ use clap::Parser;
 
 /// Command line arguments.
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Args {
     /// Port to listen on
-    #[clap(value_parser = clap::value_parser!(u16).range(1..))]
+    #[arg(value_parser = clap::value_parser!(u16).range(1..))]
     port: u16,
 
     /// Ip Address to listen on
-    #[clap(long, value_parser, default_value = "0.0.0.0")]
+    #[arg(long, value_parser, default_value = "0.0.0.0")]
     ip: String,
 
     /// Denial of Service Count Limit
-    #[clap(long, value_parser, default_value_t = 1000)]
+    #[arg(long, value_parser, default_value_t = 1000)]
     dos_count: u64,
 
     /// Denial of Service Read Request Limit
-    #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
+    #[arg(long, value_parser, default_value_t = 1_000_000_000_000)]
     dos_read: u64,
 
     /// Denial of Service CPU Limit
-    #[clap(long, value_parser, default_value_t = 100_000)]
+    #[arg(long, value_parser, default_value_t = 100_000)]
     dos_cpu: u64,
 
     /// Denial of Service Write Response Limit
-    #[clap(long, value_parser, default_value_t = 1_000_000_000_000)]
+    #[arg(long, value_parser, default_value_t = 1_000_000_000_000)]
     dos_write: u64,
 
     /// Memory limit for page cache (in MB)
-    #[clap(long, value_parser, default_value_t = 100)]
+    #[arg(long, value_parser, default_value_t = 100)]
     mem: usize,
 
     /// Server to replicate
-    #[clap(long, value_parser, default_value = "")]
+    #[arg(long, value_parser, default_value = "")]
     rep: String,
 
     /// Login cookies for replication
-    #[clap(long, value_parser, default_value = "")]
+    #[arg(long, value_parser, default_value = "")]
     login: String,
 
     /// Trace query time
-    #[clap(long, value_parser, default_value_t = false)]
+    #[arg(long, value_parser, default_value_t = false)]
     tracetime: bool,
 
     /// Trace memory trimming
-    #[clap(long, value_parser, default_value_t = false)]
+    #[arg(long, value_parser, default_value_t = false)]
     tracemem: bool,
 
     /// Trace memory DoS
-    #[clap(long, value_parser, default_value_t = false)]
+    #[arg(long, value_parser, default_value_t = false)]
     tracedos: bool,
 }
