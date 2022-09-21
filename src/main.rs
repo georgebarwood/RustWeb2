@@ -106,11 +106,10 @@ async fn main() -> Result<(), std::io::Error> {
     }
 }
 
-fn _recover(db: &rustdb::DB)
-{
+fn _recover(db: &rustdb::DB) {
     let mut tr = rustdb::GenTransaction::default();
     let sql = "";
-    db.run(&sql, &mut tr);
+    db.run(sql, &mut tr);
     db.save();
 }
 
