@@ -218,7 +218,7 @@ BEGIN
       DECLARE sname string SET sname = sys.SchemaName(schema)
       SET filter = CASE
         WHEN sname = 'log' OR sname = 'email' OR sname = 'login' OR sname = 'timed'
-        THEN ' WHERE 1 = 0'
+          OR tname = '[browse].[Column]' OR tname = '[browse].[Table]' THEN ' WHERE false'
         ELSE '' END
     END    
 
@@ -265,7 +265,7 @@ GO
 
   /******* Script Data *******/
 
-  IF sname != 'sys' AND sname != 'browse'
+  IF sname != 'sys'
   BEGIN
     FOR t = Id FROM sys.Table WHERE Schema = s ORDER BY Name
       EXEC sys.ScriptData(t,mode)
@@ -2262,6 +2262,27 @@ BEGIN
 
   RETURN tid
 END
+GO
+
+INSERT INTO [browse].[Column](Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputFunction],[InputRows],[Datatype]) VALUES 
+GO
+
+INSERT INTO [browse].[Datatype](Id,[Name],[DataKind],[SqlFn]) VALUES 
+(1,'Integer',3,'browse.SqlInteger')
+(2,'String',2,'browse.SqlString')
+(3,'Time',3,'browse.SqlTime')
+(4,'Date',3,'browse.SqlDate')
+(5,'File',1,'browse.SqlFile')
+(6,'Bool',5,'browse.SqlBool')
+(7,'Password',1,'browse.SqlPassword')
+(8,'Float',4,'browse.SqlFloat')
+(9,'Binary',1,'browse.SqlBinary')
+(10,'ContentType',2,'browse.SqlContentType')
+(11,'Image',1,'browse.SqlImage')
+(12,'FileName',2,'browse.SqlFileName')
+GO
+
+INSERT INTO [browse].[Table](Id,[NameFunction],[SelectFunction],[DefaultOrder],[Title],[Description],[Role]) VALUES 
 GO
 
 --############################################
