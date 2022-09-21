@@ -4,6 +4,7 @@ BEGIN
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
 END
 GO
+
 CREATE FN [sys].[ColName]( table int, colId int ) RETURNS string AS
 BEGIN
   DECLARE i int
@@ -16,6 +17,7 @@ BEGIN
   RETURN '?bad colId?'  
 END
 GO
+
 CREATE FN [sys].[ColNames]( table int ) RETURNS string AS
 BEGIN
   DECLARE col string
@@ -25,6 +27,7 @@ BEGIN
   RETURN result | ')'
 END
 GO
+
 CREATE FN [sys].[ColValues]( table int ) RETURNS string AS
 BEGIN
   DECLARE col string
@@ -40,6 +43,7 @@ BEGIN
   RETURN result
 END
 GO
+
 CREATE FN [sys].[Cols]( table int ) RETURNS string AS
 BEGIN
   DECLARE col string, list string
@@ -49,11 +53,13 @@ BEGIN
   RETURN '(' | list | ')'
 END
 GO
+
 CREATE FN [sys].[Dot]( schema string, name string ) RETURNS string AS
 BEGIN
   RETURN sys.QuoteName( schema ) | '.' | sys.QuoteName( name )
 END
 GO
+
 CREATE FN [sys].[DropColumn]( t int, cname string ) AS 
 BEGIN 
   DELETE FROM sys.Column WHERE Table = t AND Name = cname
@@ -61,6 +67,7 @@ BEGIN
   /* Could delete browse column info as well (todo)*/
 END
 GO
+
 CREATE FN [sys].[DropIndex]( ix int ) AS
 BEGIN
   /* Note: this should not be called directly, instead use DROP INDEX statement */
@@ -68,6 +75,7 @@ BEGIN
   DELETE FROM sys.Index WHERE Id = ix
 END
 GO
+
 CREATE FN [sys].[DropSchema]( sid int ) AS
 /* Note: this should not be called directly, instead use DROP SCHEMA statement */
 BEGIN
@@ -78,6 +86,7 @@ BEGIN
   DELETE FROM sys.Schema WHERE Id = sid
 END
 GO
+
 CREATE FN [sys].[DropTable]( t int ) AS 
 /* Note: this should not be called directly, instead use DROP TABLE statement */
 BEGIN
@@ -102,11 +111,13 @@ BEGIN
   DELETE FROM sys.Table WHERE Id = t
 END
 GO
+
 CREATE FN [sys].[FloatLiteral]( x float ) RETURNS string AS 
 BEGIN
    RETURN 'PARSEFLOAT(' | sys.SingleQuote( '' | x ) | ')'
 END
 GO
+
 CREATE FN [sys].[IncludeSchema]( mode int, s string ) RETURNS bool AS 
 BEGIN
   IF s = 'sys' OR s = 'date' OR s = 'web' OR s = 'log' OR s = 'handler' OR s = 'browse'
@@ -117,6 +128,7 @@ BEGIN
   RETURN mode = 1
 END
 GO
+
 CREATE FN [sys].[IndexCols]( index int ) RETURNS string AS
 BEGIN
   DECLARE table int, list string, col string
@@ -126,21 +138,25 @@ BEGIN
   RETURN '(' | list | ')'
 END
 GO
+
 CREATE FN [sys].[IndexName]( index int ) RETURNS string AS
 BEGIN
   SET result = sys.QuoteName(Name) FROM sys.Index WHERE Id = index
 END
 GO
+
 CREATE FN [sys].[QuoteName]( s string ) RETURNS string AS
 BEGIN
   RETURN '[' | REPLACE( s, ']', ']]' ) | ']'
 END
 GO
+
 CREATE FN [sys].[SchemaName]( schema int) RETURNS string AS 
 BEGIN 
   SET result = Name FROM sys.Schema WHERE Id = schema
 END
 GO
+
 CREATE FN [sys].[ScriptBrowse]( t int ) AS
 BEGIN
   -- Script browse information for Table t.
@@ -183,6 +199,7 @@ VALUES (cid, '
 GO'
 END
 GO
+
 CREATE FN [sys].[ScriptData]( t int, mode int ) AS
 BEGIN
     DECLARE filter string
@@ -216,6 +233,7 @@ INSERT INTO ' | sys.TableName(t) | sys.ColNames(t) | ' VALUES
 '
 END
 GO
+
 CREATE FN [sys].[ScriptSchema]( s int, mode int ) AS
 BEGIN
   DECLARE sname string SET sname = sys.SchemaName(s)
@@ -226,7 +244,9 @@ BEGIN
   BEGIN
     SELECT '
 --############################################
-CREATE SCHEMA ' | sys.QuoteName( sname )
+CREATE SCHEMA ' | sys.QuoteName( sname ) | '
+GO
+'
 
     DECLARE t int
     FOR t = Id FROM sys.Table WHERE Schema = s ORDER BY Name
@@ -239,7 +259,8 @@ CREATE SCHEMA ' | sys.QuoteName( sname )
 
   SELECT '
 CREATE FN ' | sys.Dot( sname,Name) | Def | '
-GO' 
+GO
+' 
   FROM sys.Function  WHERE Schema = s ORDER BY Name
 
   /******* Script Data *******/
@@ -251,6 +272,7 @@ GO'
   END
 END
 GO
+
 CREATE FN [sys].[ScriptSchemaBrowse]( s int ) AS
 BEGIN
   DECLARE t int
@@ -260,25 +282,30 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [sys].[ScriptTable]( t int ) AS
 BEGIN
   SELECT '
 CREATE TABLE ' | sys.TableName(t) | sys.Cols(t) | ' 
-GO'
+GO
+'
   DECLARE ix int, name string
   FOR ix = Id, name = Name FROM sys.Index WHERE Table = t
   BEGIN
     SELECT '
 CREATE INDEX ' | sys.QuoteName(name) | ' ON ' | sys.TableName(t) | sys.IndexCols(ix) | '
-GO'
+GO
+'
   END
 END
 GO
+
 CREATE FN [sys].[SingleQuote]( s string ) RETURNS string AS
 BEGIN
   RETURN '''' | REPLACE( s, '''', '''''' ) | ''''
 END
 GO
+
 CREATE FN [sys].[TableName]( table int ) RETURNS string AS
 BEGIN
   DECLARE schema int, name string
@@ -287,6 +314,7 @@ BEGIN
   SET result = sys.Dot( Name, name ) FROM sys.Schema WHERE Id = schema
 END
 GO
+
 CREATE FN [sys].[TypeName]( t int ) RETURNS string AS 
 BEGIN 
   DECLARE p int
@@ -309,14 +337,18 @@ BEGIN
   END
 END
 GO
+
 --############################################
 CREATE SCHEMA [date]
+GO
+
 CREATE FN [date].[DaysToString]( date int ) RETURNS string AS
 BEGIN
   RETURN -- date.WeekDayToString( 1 + (date+5) % 7 ) | ' ' | 
     date.YearMonthDayToString( date.DaysToYearMonthDay( date ) )
 END
 GO
+
 CREATE FN [date].[DaysToYearDay]( days int ) RETURNS int AS
 BEGIN
   -- Given a date represented by the number of days since 1 Jan 0000
@@ -342,16 +374,19 @@ BEGIN
   RETURN 512 * ( cycle * 400 + year ) + day + 1
 END
 GO
+
 CREATE FN [date].[DaysToYearMonthDay]( days int ) RETURNS int AS
 BEGIN
   RETURN date.YearDayToYearMonthDay( date.DaysToYearDay( days ) )
 END
 GO
+
 CREATE FN [date].[IsLeapYear]( y int ) RETURNS bool AS
 BEGIN
   RETURN y % 4 = 0 AND ( y % 100 != 0 OR y % 400 = 0 )
 END
 GO
+
 CREATE FN [date].[MicroSecToString](micro int) RETURNS string AS
 BEGIN
   DECLARE day int, sec int, min int, hour int
@@ -365,6 +400,7 @@ BEGIN
   RETURN date.DaysToString(  day ) | ' ' | hour | ':' | min | ':' | sec
 END
 GO
+
 CREATE FN [date].[MonthToString]( m int ) RETURNS string AS
 BEGIN
   RETURN CASE
@@ -384,11 +420,13 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [date].[NowString]() RETURNS string AS
 BEGIN
   RETURN date.MicroSecToString( date.Ticks() )
 END
 GO
+
 CREATE FN [date].[StringToDays]( s string ) RETURNS int AS
 BEGIN
   -- Typical input is 'Feb 2 2020'
@@ -434,6 +472,7 @@ BEGIN
   RETURN date.YearMonthDayToDays( date.YearMonthDay( year, month, day ) )
 END
 GO
+
 CREATE FN [date].[StringToTime]( s string ) RETURNS int AS
 BEGIN
   -- Typical input is 'Feb 2 2020 20:15:31'
@@ -517,11 +556,13 @@ BEGIN
   SET result = result * 1000000
 END
 GO
+
 CREATE FN [date].[StringToYearMonthDay]( s string ) RETURNS int AS
 BEGIN
   RETURN date.DaysToYearMonthDay( date.StringToDays( s ) )
 END
 GO
+
 CREATE FN [date].[Test]( y int, m int, d int, n int ) AS 
 BEGIN
   DECLARE ymd int, days int
@@ -536,6 +577,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [date].[TestRoundTrip]() AS
 BEGIN
   DECLARE day int
@@ -552,6 +594,7 @@ BEGIN
   SELECT 'Finished test day=' | day | ' date=' | date.DaysToString(day)
 END
 GO
+
 CREATE FN [date].[Ticks]() RETURNS int AS
 BEGIN
   -- Microseconds since 1 Jan 0000
@@ -559,6 +602,7 @@ BEGIN
      + 366 * 24 * 3600 * 1000000
 END
 GO
+
 CREATE FN [date].[Today]() RETURNS int AS
 BEGIN
   DECLARE sec int, day int
@@ -567,11 +611,13 @@ BEGIN
   RETURN day
 END
 GO
+
 CREATE FN [date].[TodayYMD]() RETURNS int AS 
 BEGIN
   SET result = date.DaysToYearMonthDay(date.Today())
 END
 GO
+
 CREATE FN [date].[WeekDayToString]( wd int ) RETURNS string AS
 BEGIN
   RETURN CASE
@@ -586,11 +632,13 @@ BEGIN
     END
 END
 GO
+
 CREATE FN [date].[YearDay]( year int, day int ) RETURNS int AS
 BEGIN
   RETURN year * 512 + day
 END
 GO
+
 CREATE FN [date].[YearDayToDays]( yd int ) RETURNS int AS
 BEGIN
   -- Given a date in Year/Day representation stored as y * 512 + d where 1 <= d <= 366 ( so d is day in year )
@@ -609,11 +657,13 @@ BEGIN
     + d
 END
 GO
+
 CREATE FN [date].[YearDayToString]( yd int ) RETURNS string AS
 BEGIN
    RETURN date.YearMonthDayToString( date.YearDayToYearMonthDay( yd ) )  
 END
 GO
+
 CREATE FN [date].[YearDayToYearMonthDay]( yd int ) RETURNS int AS
 BEGIN
   DECLARE y int, d int, leap bool, fdm int, m int, dim int
@@ -641,16 +691,19 @@ BEGIN
   RETURN date.YearMonthDay( y, m+1, dim+1 )
 END
 GO
+
 CREATE FN [date].[YearMonthDay]( year int, month int, day int ) RETURNS int AS
 BEGIN
   RETURN year * 512 + month * 32 + day
 END
 GO
+
 CREATE FN [date].[YearMonthDayToDays]( ymd int ) RETURNS int AS
 BEGIN
   RETURN date.YearDayToDays( date.YearMonthDayToYearDay( ymd ) )
 END
 GO
+
 CREATE FN [date].[YearMonthDayToString]( ymd int ) RETURNS string AS
 BEGIN
   DECLARE y int, m int, d int
@@ -661,6 +714,7 @@ BEGIN
   RETURN date.MonthToString(m) | ' ' | d | ' ' |  y
 END
 GO
+
 CREATE FN [date].[YearMonthDayToYearDay]( ymd int ) RETURNS int AS
 BEGIN
   DECLARE y int, m int, d int
@@ -687,12 +741,17 @@ BEGIN
   RETURN date.YearDay( y, d )
 END
 GO
+
 --############################################
 CREATE SCHEMA [web]
-CREATE TABLE [web].[File]([Path] string,[ContentType] string,[ContentLength] int,[Content] binary) 
 GO
+
+CREATE TABLE [web].[File]([Path] string,[ContentType] string,[Content] binary) 
+GO
+
 CREATE INDEX [ByPath] ON [web].[File]([Path])
 GO
+
 CREATE FN [web].[Attr]( s string ) RETURNS string AS
 BEGIN
   SET s = REPLACE( s, '&', '&amp;' )
@@ -700,11 +759,13 @@ BEGIN
   RETURN '\"' | s | '\"'
 END
 GO
+
 CREATE FN [web].[Cookie]( name string ) RETURNS string AS
 BEGIN
   RETURN ARG( 3, name )
 END
 GO
+
 CREATE FN [web].[Encode]( s string ) RETURNS string AS
 BEGIN
   SET s = REPLACE( s,'&', '&amp;' )
@@ -712,11 +773,13 @@ BEGIN
   RETURN s
 END
 GO
+
 CREATE FN [web].[Form]( name string ) RETURNS string AS
 BEGIN
   RETURN ARG( 2, name )
 END
 GO
+
 CREATE FN [web].[Head]( title string ) AS 
 BEGIN 
   EXEC web.SetContentType( 'text/html;charset=utf-8' )
@@ -743,6 +806,7 @@ BEGIN
 | <a target=_blank href=\"/browse/EditFunc?s=handler&n=' | web.Path() | '\">Code</a> ' | date.NowString() | ' UTC</div>'
 END
 GO
+
 CREATE FN [web].[Main]() AS 
 BEGIN 
   DECLARE path string SET path = web.Path()
@@ -778,16 +842,19 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [web].[Path]() RETURNS string AS
 BEGIN
   RETURN ARG(0,'')
 END
 GO
+
 CREATE FN [web].[Query]( name string ) RETURNS string AS
 BEGIN
   RETURN ARG( 1, name )
 END
 GO
+
 CREATE FN [web].[Redirect]( url string ) AS
 BEGIN
   DECLARE x int
@@ -795,6 +862,7 @@ BEGIN
   SET x = STATUSCODE( 303 )
 END
 GO
+
 CREATE FN [web].[SendBinary]( contenttype string, content binary ) AS
 BEGIN
   DECLARE cu int SET cu = login.user()
@@ -802,12 +870,14 @@ BEGIN
   SELECT content
 END
 GO
+
 CREATE FN [web].[SetContentType]( ct string ) AS
 BEGIN
   DECLARE x int
   SET x = HEADER( 'contenttype', ct )
 END
 GO
+
 CREATE FN [web].[SetCookie]( name string, value string, expires string ) AS
 BEGIN
   /* Expires can be either in seconds e.g. Max-Age=1000000000
@@ -822,6 +892,7 @@ BEGIN
   SET x = HEADER( 'set-cookie', name | '=' | value | '; ' | expires )
 END
 GO
+
 CREATE FN [web].[SetDos]( uid int ) RETURNS int AS
 BEGIN
   DECLARE ok int
@@ -840,17 +911,20 @@ BEGIN
   RETURN ok
 END
 GO
+
 CREATE FN [web].[SetUser]() AS 
 BEGIN 
   DECLARE dummy int
   SET dummy = login.user()
 END
 GO
+
 CREATE FN [web].[Trailer]() AS
 BEGIN
   SELECT '</body></html>'
 END
 GO
+
 CREATE FN [web].[UrlEncode]( s string ) RETURNS string AS
 BEGIN
   /* Would probably be better to do this using builtin function */
@@ -863,6 +937,7 @@ BEGIN
   RETURN s
 END
 GO
+
 CREATE FN [web].[pubhead](title string) AS
 BEGIN 
   EXEC web.SetContentType( 'text/html;charset=utf-8' )
@@ -882,6 +957,7 @@ BEGIN
 '
 END
 GO
+
 CREATE FN [web].[pubtrail]() AS 
 BEGIN 
 
@@ -889,20 +965,27 @@ SELECT  '<div class=outer3><div>Copyright © ' | ( date.TodayYMD() / 512 ) | '  
 
 END
 GO
-INSERT INTO [web].[File](Id,[Path],[ContentType],[ContentLength],[Content]) VALUES 
-(16,'/favicon.ico','image/x-icon',1086,0x00000100010010100000010020002804000016000000280000001000000020000000010020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ff840008ffc60008ffbd0008ffc60008ff830000000000000000000000000000000000000000000000000000000000000000000000000000ff190009ffef0008ff620009ff38000000000009ff380008ff620009ffec0000ff150000000000000000000000000000000000000000000000000000ff160008ffc30000ff0f00000000000000000000000000000000000000000000ff120008ffc30000ff1400000000000000000000000000000000000000000009ffcb0005ff33000000000000000000000000000000000000000000000000000000000005ff370009ffc7000000000000000000000000000000000006ff5c0007ff8e0000000000000000000000000000000000000000000000000000000000000000000000000007ff910006ff580000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000008ffbd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ffbd0000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000005ff5d0007ff8b0000000000000000000000000000000000000000000000000000000000000000000000000007ff8e0006ff5a000000000000000000000000000000000009ffcd0005ff31000000000000000000000000000000000000000000000000000000000005ff350009ffc900000000000000000000000000000000000000000000ff180008ffc20000ff0b00000000000000000000000000000000000000000000ff0e0008ffc20000ff170000000000000000000000000000000000000000000000000009ff1c0008fff30008ff600005ff37000000000005ff370008ff600008fff00000ff180000000000000000000000000000000000000000000000000000000000000000000000000009ff870009ffc80008ffbf0009ffc80008ff86000000000000000000000000000000000000000000000000)
+
+INSERT INTO [web].[File](Id,[Path],[ContentType],[Content]) VALUES 
+(16,'/favicon.ico','image/x-icon',0x00000100010010100000010020002804000016000000280000001000000020000000010020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ff840008ffc60008ffbd0008ffc60008ff830000000000000000000000000000000000000000000000000000000000000000000000000000ff190009ffef0008ff620009ff38000000000009ff380008ff620009ffec0000ff150000000000000000000000000000000000000000000000000000ff160008ffc30000ff0f00000000000000000000000000000000000000000000ff120008ffc30000ff1400000000000000000000000000000000000000000009ffcb0005ff33000000000000000000000000000000000000000000000000000000000005ff370009ffc7000000000000000000000000000000000006ff5c0007ff8e0000000000000000000000000000000000000000000000000000000000000000000000000007ff910006ff580000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000008ffbd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ffbd0000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000005ff5d0007ff8b0000000000000000000000000000000000000000000000000000000000000000000000000007ff8e0006ff5a000000000000000000000000000000000009ffcd0005ff31000000000000000000000000000000000000000000000000000000000005ff350009ffc900000000000000000000000000000000000000000000ff180008ffc20000ff0b00000000000000000000000000000000000000000000ff0e0008ffc20000ff170000000000000000000000000000000000000000000000000009ff1c0008fff30008ff600005ff37000000000005ff370008ff600008fff00000ff180000000000000000000000000000000000000000000000000000000000000000000000000009ff870009ffc80008ffbf0009ffc80008ff86000000000000000000000000000000000000000000000000)
 GO
 
 --############################################
 CREATE SCHEMA [browse]
+GO
+
 CREATE TABLE [browse].[Column]([Position] int,[Label] string,[Description] string,[RefersTo] int,[Default] string,[InputCols] int,[InputFunction] string,[InputRows] int,[Datatype] int) 
 GO
+
 CREATE INDEX [ByRefersTo] ON [browse].[Column]([RefersTo])
 GO
+
 CREATE TABLE [browse].[Datatype]([Name] string,[DataKind] int,[SqlFn] string) 
 GO
+
 CREATE TABLE [browse].[Table]([NameFunction] string,[SelectFunction] string,[DefaultOrder] string,[Title] string,[Description] string,[Role] int) 
 GO
+
 CREATE FN [browse].[/browse/AddChild]() AS
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -933,6 +1016,7 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
+
 CREATE FN [browse].[/browse/AddRow]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -963,6 +1047,7 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
+
 CREATE FN [browse].[/browse/ColInfo]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -991,6 +1076,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[/browse/EditFunc]() AS
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -1016,6 +1102,7 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
+
 CREATE FN [browse].[/browse/EditRow]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -1054,7 +1141,8 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
-CREATE FN [browse].[/browse/Image]() AS 
+
+CREATE FN [browse].[/browse/File]() AS 
 BEGIN
    DECLARE k int SET k = PARSEINT( web.Query('k'))
    DECLARE c int SET c = PARSEINT( web.Query('c'))
@@ -1065,8 +1153,8 @@ BEGIN
 
    FOR id = Id FROM sys.Column WHERE Table = t
    BEGIN
-     DECLARE def string
-     SET def = Default FROM browse.Column WHERE Id = id
+     DECLARE def string SET def = ''
+     SET def = Default FROM browse.Column WHERE Id = id AND Datatype = 10
      IF def = cname 
      BEGIN
        SET ctname = Name FROM sys.Column WHERE Id = id
@@ -1089,6 +1177,43 @@ SELECT content
    
 END
 GO
+
+CREATE FN [browse].[/browse/Image]() AS 
+BEGIN
+   DECLARE k int SET k = PARSEINT( web.Query('k'))
+   DECLARE c int SET c = PARSEINT( web.Query('c'))
+   DECLARE t int
+   DECLARE cname string, ctname string
+   DECLARE id int
+   SET t = Table, cname = Name FROM sys.Column WHERE Id = c
+
+   FOR id = Id FROM sys.Column WHERE Table = t
+   BEGIN
+     DECLARE def string SET def = ''
+     SET def = Default FROM browse.Column WHERE Id = id AND Datatype = 10
+     IF def = cname 
+     BEGIN
+       SET ctname = Name FROM sys.Column WHERE Id = id
+       BREAK
+     END
+   END
+
+   DECLARE sql string
+   SET sql = '
+DECLARE content binary
+DECLARE ct string
+SET content = ' | cname | ', ct=' | ctname | ' 
+FROM ' | sys.TableName(t) | '
+WHERE Id = ' | k | '
+EXEC web.SetContentType(ct)
+SELECT content
+'
+
+   EXECUTE( sql )
+   
+END
+GO
+
 CREATE FN [browse].[/browse/Info]() AS 
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -1114,6 +1239,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[/browse/Row]() AS 
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -1125,6 +1251,7 @@ BEGIN
   EXECUTE( browse.ShowSql(t,k) )
 END
 GO
+
 CREATE FN [browse].[/browse/Schema]() AS
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -1135,6 +1262,9 @@ BEGIN
   DECLARE sid int SET sid = Id FROM sys.Schema WHERE Name = s
   EXEC web.Head( 'Schema ' | s )
   SELECT '<h1>Schema ' | s | '</h1>'
+
+  SELECT '<p><a target=_blank href=\"/ScriptSchema?s=' | s | '\">Script</a>'
+ 
   SELECT '<h2>Tables</h2>'
   SELECT '<p><a href=\"/browse/Table?' | browse.tablearg(Id) | ba | '\">' | Name | '</a>'
   FROM sys.Table WHERE Schema = sid ORDER BY Name
@@ -1144,6 +1274,7 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
+
 CREATE FN [browse].[/browse/Table]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -1178,6 +1309,7 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
+
 CREATE FN [browse].[AlterSql]() AS 
 BEGIN
   DECLARE f string, sql string
@@ -1199,12 +1331,14 @@ END
   EXECUTE( sql )
 END
 GO
+
 CREATE FN [browse].[BrowseColumnName]( k int ) RETURNS string AS 
 BEGIN
   SET result = sys.TableName( Table ) | '.' | sys.QuoteName( Name )
   FROM sys.Column WHERE Id = k
 END
 GO
+
 CREATE FN [browse].[ChildSql]( colId int, k int, ba string ) RETURNS string AS 
 BEGIN 
   /* Returns SQL to display a child table, with hyperlinks where a column refers to another table */
@@ -1237,6 +1371,7 @@ BEGIN
    | ' SELECT ''</TABLE>'''
 END
 GO
+
 CREATE FN [browse].[ColNames]( table int, ba string ) RETURNS string AS
 BEGIN
   DECLARE col string
@@ -1249,6 +1384,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[ColPos]( c int ) RETURNS int AS
 BEGIN
   DECLARE pos int
@@ -1256,6 +1392,7 @@ BEGIN
   RETURN pos
 END
 GO
+
 CREATE FN [browse].[ColValues]( table int, ba string ) RETURNS string AS
 BEGIN
   DECLARE col string, colid int, type int
@@ -1285,11 +1422,13 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[DatatypeName]( datatype int ) RETURNS string AS
 BEGIN
   SET result = Name FROM browse.Datatype WHERE Id = datatype
 END
 GO
+
 CREATE FN [browse].[DatatypeSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -1304,6 +1443,7 @@ BEGIN
      | '</select>'
 END
 GO
+
 CREATE FN [browse].[DefaultDataType](type int) RETURNS int AS 
 BEGIN
     SET result = CASE
@@ -1316,6 +1456,13 @@ BEGIN
     END
 END
 GO
+
+CREATE FN [browse].[DownloadLink](id int,colid int) RETURNS string AS
+BEGIN 
+   RETURN '<a target=_blank href=\"/browse/File?k=' | id | '&c=' | colid |'\">Download</a>'
+END
+GO
+
 CREATE FN [browse].[FormInsertSql]( table int, pc int ) RETURNS string AS
 BEGIN
   DECLARE sql string, col string, type int, colId int
@@ -1345,6 +1492,7 @@ BEGIN
   RETURN CASE WHEN sql = '' THEN '' ELSE 'SELECT ' | sql END
 END
 GO
+
 CREATE FN [browse].[FormUpdateSql]( table int, k int ) RETURNS string AS
 BEGIN
   DECLARE sql string, col string, colId int, type int
@@ -1374,6 +1522,7 @@ BEGIN
   RETURN 'SELECT ' | sql | ' FROM ' | sys.TableName( table ) | ' WHERE Id =' | k
 END
 GO
+
 CREATE FN [browse].[GetDatatype]( type int, colid int ) RETURNS int AS
 BEGIN
   SET result = Datatype FROM browse.Column WHERE Id = colid
@@ -1390,6 +1539,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[InputBinary]( colId int, value binary ) RETURNS string AS 
 BEGIN 
   DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
@@ -1398,6 +1548,7 @@ BEGIN
   RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=\"' | value | '\">'
 END
 GO
+
 CREATE FN [browse].[InputBool]( colId int, value bool ) RETURNS string AS
 BEGIN
   DECLARE cn string 
@@ -1405,6 +1556,7 @@ BEGIN
   RETURN '<input type=checkbox id=\"' | cn | '\" name=\"' | cn | '\"' | CASE WHEN value THEN ' checked' ELSE '' END | '>'
 END
 GO
+
 CREATE FN [browse].[InputDouble]( colId int, value double ) RETURNS string AS 
 BEGIN 
   DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
@@ -1414,6 +1566,7 @@ BEGIN
   RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | size | '\"' | ' value=\"' | value | '\">'
 END
 GO
+
 CREATE FN [browse].[InputFile]( colId int ) RETURNS string AS 
 BEGIN 
   DECLARE cn string 
@@ -1422,6 +1575,7 @@ BEGIN
   RETURN '<input type=file id=\"' | cn | '\" name=\"' | cn | '\">'
 END
 GO
+
 CREATE FN [browse].[InputInt]( colId int, value int) RETURNS string AS 
 BEGIN 
   DECLARE cn string 
@@ -1432,6 +1586,7 @@ BEGIN
   RETURN '<input type=number id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | value | '>'
 END
 GO
+
 CREATE FN [browse].[InputString]( colId int, value string ) RETURNS string AS 
 BEGIN 
   DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId 
@@ -1447,6 +1602,7 @@ BEGIN
     RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | cols | '\"' | ' value=' | web.Attr(value) | '>'
 END
 GO
+
 CREATE FN [browse].[InputTime]( colId int, value int) RETURNS string AS 
 BEGIN 
   DECLARE cn string 
@@ -1457,11 +1613,13 @@ BEGIN
   RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.MicroSecToString(value)) | '>'
 END
 GO
+
 CREATE FN [browse].[InputTimeSql]( kind int, colid int ) RETURNS string AS
 BEGIN
    SET result = Name FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[InputYearMonthDay]( colId int, value int) RETURNS string AS 
 BEGIN 
   DECLARE cn string 
@@ -1472,6 +1630,7 @@ BEGIN
   RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.YearMonthDayToString(value)) | '>'
 END
 GO
+
 CREATE FN [browse].[InsertContentType]( colid int ) RETURNS string AS 
 BEGIN
   DECLARE cname string
@@ -1489,6 +1648,7 @@ BEGIN
   RETURN ''
 END
 GO
+
 CREATE FN [browse].[InsertFile]( cname string ) RETURNS binary AS 
 BEGIN
   DECLARE x int
@@ -1503,6 +1663,25 @@ BEGIN
   RETURN 0x
 END
 GO
+
+CREATE FN [browse].[InsertFileName]( colid int ) RETURNS string AS 
+BEGIN
+  DECLARE cname string
+  SET cname = Default FROM browse.Column WHERE Id = colid
+
+  DECLARE x int
+  WHILE true
+  BEGIN
+    DECLARE name string
+    SET name = FILEATTR(x,0)
+    IF name = cname RETURN '/' | FILEATTR(x,2)
+    IF name = '' BREAK
+    SET x = x + 1
+  END    
+  RETURN ''
+END
+GO
+
 CREATE FN [browse].[InsertNames]( table int ) RETURNS string AS
 BEGIN
   DECLARE col string
@@ -1511,6 +1690,7 @@ BEGIN
   RETURN '(' | result | ')'
 END
 GO
+
 CREATE FN [browse].[InsertSql]( table int, pc int, p int ) RETURNS string AS
 BEGIN
   DECLARE vlist string, names string, type int, colid int, name string
@@ -1532,11 +1712,13 @@ BEGIN
   RETURN 'INSERT INTO ' | sys.TableName( table ) | '(' | names | ') VALUES (' | vlist | ')'
 END
 GO
+
 CREATE FN [browse].[ParseBool]( s string ) RETURNS bool AS
 BEGIN
   RETURN s = 'on'
 END
 GO
+
 CREATE FN [browse].[SchemaSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -1553,11 +1735,13 @@ BEGIN
      | '</select>'
 END
 GO
+
 CREATE FN [browse].[ShowImage](id int,colid int) RETURNS string AS
 BEGIN 
-   RETURN '<img style=\"max-width:300px;\" src=\"/browse/Image?k=' | id | '&c=' | colid |'\">'
+   RETURN '<img style=\"max-width:300px;\" src=\"/browse/File?k=' | id | '&c=' | colid |'\">'
 END
 GO
+
 CREATE FN [browse].[ShowSql](table int, k int) RETURNS string AS
 BEGIN
   DECLARE ba string SET ba = browse.backargs()
@@ -1618,6 +1802,7 @@ BEGIN
 '
 END
 GO
+
 CREATE FN [browse].[Sql]( kind int, colid int, t int ) RETURNS string AS
 BEGIN
   RETURN CASE 
@@ -1632,10 +1817,12 @@ BEGIN
     WHEN t=9 THEN browse.SqlBinary(kind,colid)
     WHEN t=10 THEN browse.SqlContentType(kind,colid)
     WHEN t=11 THEN browse.SqlImage(kind,colid)
+    WHEN t=12 THEN browse.SqlFileName(kind,colid)
     ELSE 'browseSqlInvalidDatatype' 
     END 
 END
 GO
+
 CREATE FN [browse].[SqlBinary]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1660,6 +1847,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlBool]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1676,6 +1864,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlContentType]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1701,6 +1890,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlDate]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1722,18 +1912,15 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlFile]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
       List=1, Show=2, Input(insert)=3, Input(update)=4, Parse(insert)=5, Parse(update) = 6 
    */
 
-   /* This needs work. First step is to specify type=file on input element.
-      Alternative plan might be to have special link to upload file.
-   */
- 
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN 'BINLEN(' | Name | ')'
+     WHEN kind = 1 OR kind = 2 THEN 'browse.DownloadLink(Id,' | colid | ')'
      WHEN kind = 3 OR kind = 4 THEN   'browse.InputFile(' | colid | ')'
      WHEN kind = 5 THEN  'browse.InsertFile(' | sys.SingleQuote(Name) | ')' 
      WHEN kind = 6 THEN  'browse.UpdateFile(' | sys.SingleQuote(Name) | ',' | Name | ')' 
@@ -1743,6 +1930,33 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
+CREATE FN [browse].[SqlFileName]( kind int, colid int ) RETURNS string AS
+BEGIN
+   /* kind values: 
+      List=1, Show=2, Input(insert)=3, Input(update)=4, Parse(insert)=5, Parse(update) = 6 
+   */
+
+   DECLARE default string
+   IF kind = 3 SET default = Default 
+   FROM browse.Column WHERE Id = colid
+
+   IF default = '' SET default = ''''''
+ 
+   SET result = CASE
+     WHEN kind = 1 THEN 'sys.SingleQuote(web.Encode(' | Name | '))' 
+     WHEN kind = 2 THEN 'web.Encode(' | Name | ')' 
+     WHEN kind = 3 THEN  ''
+     WHEN kind = 4 THEN  'browse.InputString(' | colid | ',' | Name | ')' 
+     WHEN kind = 5 THEN  'browse.InsertFileName(' | colid | ')'
+     WHEN kind = 6 THEN  'web.Form(' | sys.SingleQuote(Name) | ')' 
+     ELSE 'SqlFileNameBADKIND'
+   END
+
+   FROM sys.Column WHERE Id = colid
+END
+GO
+
 CREATE FN [browse].[SqlFloat]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1767,16 +1981,13 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlImage]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
       List=1, Show=2, Input(insert)=3, Input(update)=4, Parse(insert)=5, Parse(update) = 6 
    */
 
-   /* This needs work. First step is to specify type=file on input element.
-      Alternative plan might be to have special link to upload file.
-   */
- 
    SET result = CASE
      WHEN kind = 1 THEN 'BINLEN(' | Name | ')'
      WHEN kind = 2 THEN 'browse.ShowImage(Id,' | colid | ')'
@@ -1789,6 +2000,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlInteger]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1813,6 +2025,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlPassword]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1840,6 +2053,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlString]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1864,6 +2078,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[SqlTime]( kind int, colid int ) RETURNS string AS
 BEGIN
    /* kind values: 
@@ -1885,6 +2100,7 @@ BEGIN
    FROM sys.Column WHERE Id = colid
 END
 GO
+
 CREATE FN [browse].[TableSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -1899,12 +2115,14 @@ BEGIN
      | '</select>'
 END
 GO
+
 CREATE FN [browse].[TableTitle]( table int ) RETURNS string AS
 BEGIN
   SET result = Title FROM browse.Table WHERE Id = table
   IF result = '' SET result = Name FROM sys.Table WHERE Id = table
 END
 GO
+
 CREATE FN [browse].[UpdateContentType]( colid int, old string ) RETURNS string AS 
 BEGIN
   DECLARE cname string
@@ -1922,6 +2140,7 @@ BEGIN
   RETURN old
 END
 GO
+
 CREATE FN [browse].[UpdateFile]( cname string, old binary ) RETURNS binary AS 
 BEGIN
   DECLARE x int
@@ -1936,6 +2155,7 @@ BEGIN
   RETURN old
 END
 GO
+
 CREATE FN [browse].[UpdateSql]( table int, k int ) RETURNS string AS
 BEGIN
   DECLARE alist string, col string, type int, colId int
@@ -1948,6 +2168,7 @@ BEGIN
   RETURN 'UPDATE ' | sys.TableName( table ) | ' SET ' | alist | ' WHERE Id =' | k
 END
 GO
+
 CREATE FN [browse].[backargs]() RETURNS string AS 
 BEGIN 
   DECLARE keep string
@@ -1984,6 +2205,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[backurl]() RETURNS string AS
 BEGIN
   DECLARE n int
@@ -2001,6 +2223,7 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [browse].[fieldarg](f int) RETURNS string AS
 BEGIN
   DECLARE t int, fname string
@@ -2008,6 +2231,7 @@ BEGIN
   RETURN browse.tablearg(t) | '&f=' | fname
 END
 GO
+
 CREATE FN [browse].[fieldid]() RETURNS int AS
 BEGIN 
   DECLARE t int SET t = browse.tableid()
@@ -2016,6 +2240,7 @@ BEGIN
   RETURN f
 END
 GO
+
 CREATE FN [browse].[tablearg]( t int ) RETURNS string AS
 BEGIN
   DECLARE sid int, s string, n string
@@ -2024,6 +2249,7 @@ BEGIN
   RETURN 's=' | s | '&n=' | n
 END
 GO
+
 CREATE FN [browse].[tableid]() RETURNS int AS
 BEGIN
   DECLARE sname string, tname string, sid int, tid int
@@ -2037,8 +2263,11 @@ BEGIN
   RETURN tid
 END
 GO
+
 --############################################
 CREATE SCHEMA [handler]
+GO
+
 CREATE FN [handler].[/CheckAll]() AS 
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -2065,28 +2294,7 @@ BEGIN
   EXEC web.Trailer()
 END
 GO
-CREATE FN [handler].[/EditFile]() AS
-BEGIN
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
 
-  DECLARE k int SET k = PARSEINT( web.Query('k') )
-  DECLARE path string SET path = web.Form('path')
-  IF path != '' 
-  BEGIN
-    UPDATE web.File SET Path = path WHERE Id = k
-    EXEC web.Redirect('ListFile')
-  END
-  ELSE
-  BEGIN
-    EXEC web.Head( 'Edit File' )
-    SELECT '<h1>Edit File Path</h1>'
-    SELECT '<form method=post>Path: <input name=path size=50 value=\"' | Path | '\">'
-      | '<p><input type=submit value=Save></form>'
-    FROM web.File WHERE Id = k
-    EXEC web.Trailer()
-  END
-END
-GO
 CREATE FN [handler].[/Execute]() AS 
 BEGIN
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -2131,23 +2339,7 @@ BEGIN
    EXEC web.Trailer()
 END
 GO
-CREATE FN [handler].[/FileUpload]() AS
-BEGIN
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
 
-  EXEC web.Head( 'File upload' )
-  IF FILEATTR(0,0) = 'file' 
-  BEGIN
-    SELECT '<p>Filename=' | FILEATTR(0,2) | ' ContentType=' | FILEATTR(0,1)
-    DECLARE content binary SET content =  FILECONTENT(0)
-    
-    INSERT INTO web.File( Path, ContentType, ContentLength, Content )
-    VALUES ( '/Uploads/' | FILEATTR(0,2), FILEATTR(0,1), BINLEN(content), content )
-  END
-  SELECT '<form method=post enctype=\"multipart/form-data\"><p><Input name=file type=file><p><input name=submit type=submit value=Upload></form>'
-  EXEC web.Trailer()
-END
-GO
 CREATE FN [handler].[/GetTransaction]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -2166,18 +2358,7 @@ BEGIN
   END
 END
 GO
-CREATE FN [handler].[/ListFile]() AS
-BEGIN
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
 
-  EXEC web.Head( 'Files' )
-  SELECT '<h1>Files</h1>' 
-  SELECT '<p>Path=<a target=_blank href=\"' | Path | '\">' | Path | '</a> Type= ' | ContentType 
-   | ' Length=' | ContentLength | ' id=' | Id | ' <a href=\"/EditFile?k=' | Id | '\">Edit Path</a>'
-  FROM web.File
-  EXEC web.Trailer()
-END
-GO
 CREATE FN [handler].[/Logout]() AS 
 BEGIN 
     EXEC web.SetCookie( 'uid', '', '' )
@@ -2187,6 +2368,7 @@ BEGIN
     EXEC web.Trailer()
 END
 GO
+
 CREATE FN [handler].[/Manual]() AS BEGIN
 
 DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
@@ -2329,21 +2511,27 @@ SELECT '<h1>Manual</h1>
 <p>No default schemas. Schema of tables and functions must always be stated explicitly.
 <p>No nulls. Columns are initialised to default a value if not specified by INSERT, or when new columns are added to a table by ALTER TABLE.
 <p>No triggers. No joins. No outer references.
-<h2>Guide to the pre-defined schemas</h2>
+
+<h2>Guide to the system schemas</h2>
 <h3>sys</h3>
 <p>Has core system tables for language objects and related functions.
 <h3>web</h3>
 <p>Has the function that handles web requests ( web.main ) and other functions related to handling web requests.
 <h3>handler</h3>
-<p>Has handler functions, one for each web page.
+<p>System page handling functions.
 <h3>htm</h3>
 <p>Has functions related to encoding html.
 <h3>browse</h3><p>Has tables and functions for displaying, editing arbitrary tables in the database.
 <h3>date</h3><p>Has functions for manipulating dates - conversions between Days ( from year 0 ), Year-Day, Year-Month-Day and string.
+<h3>email</h3><p>Tables and functions for sending email.
+<h3>log</h3><p>Transaction logging for database replication.
+<h3>timed</h3><p>Timed jobs.
+
 ' 
 EXEC web.Trailer()
 END
 GO
+
 CREATE FN [handler].[/Menu]() AS
 BEGIN
    DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
@@ -2354,9 +2542,9 @@ SELECT '
 <h3>System</h3>
 <p><a href=/Execute>Execute SQL</a>
 <p><a href=/browse/Table?s=login&n=user>Logins</a>
-<p><a href=/ListFile>Files</a>
-<p><a href=/FileUpload>File Upload</a>
-<p><a target=_blank href=/ScriptUser>Script User Schemas</a> 
+<p><a href=/browse/Table?s=web&n=File>Files</a>
+
+<p><a target=_blank href=/ScriptApp>Script App Schemas</a> 
   | <a target=_blank href=/ScriptSystem>Script System Schemas</a>    
   | <a target=_blank href=/ScriptExact>Exact</a>
 <p><a href=/CheckAll>Check all functions compile ok</a> 
@@ -2367,32 +2555,14 @@ SELECT '
    EXEC web.Trailer()
 END
 GO
-CREATE FN [handler].[/PdfTest]() AS 
-BEGIN 
-  DECLARE dummy int 
-  SET dummy = TOPDF()
-  EXEC web.SetContentType('application/pdf')
 
-  SELECT '<title>George</title><h1>H1 Heading</h1><p>Hello <b>coding </b>people'
-
-END
-GO
-CREATE FN [handler].[/Rtest]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  -- Can be invoked repeatedly with e.g. for /l %x in (1, 1, 100) do curl -X POST http://localhost:3000/Rtest
-  -- Depending on the server, a POST request is needed, as GET requests maybe be assumed to be read-only.
-  EXEC rtest.OneTest() 
-END
-GO
-CREATE FN [handler].[/ScriptAll]() AS 
+CREATE FN [handler].[/ScriptApp]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
 
   EXEC web.SetContentType( 'text/plain;charset=utf-8' )
 
-  DECLARE mode int SET mode = PARSEINT(web.Query('mode'))
+  DECLARE mode int SET mode = 1
 
   DECLARE s int
   FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
@@ -2401,6 +2571,7 @@ BEGIN
     EXEC sys.ScriptSchemaBrowse(s)
 END
 GO
+
 CREATE FN [handler].[/ScriptExact]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
@@ -2412,6 +2583,25 @@ BEGIN
     EXEC sys.ScriptData(t,1)
 END
 GO
+
+CREATE FN [handler].[/ScriptSchema]() AS BEGIN 
+
+  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
+
+  DECLARE sname string SET sname = web.Query('s')
+  DECLARE s int SET s = Id FROM sys.Schema WHERE Name = sname
+
+  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
+
+  DECLARE mode int SET mode = CASE WHEN sys.IncludeSchema(1,sname) THEN 1 ELSE 2 END
+
+  EXEC sys.ScriptSchema(s,mode)
+
+  EXEC sys.ScriptSchemaBrowse(s)
+
+END
+GO
+
 CREATE FN [handler].[/ScriptSystem]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
@@ -2427,33 +2617,26 @@ BEGIN
     EXEC sys.ScriptSchemaBrowse(s)
 END
 GO
-CREATE FN [handler].[/ScriptUser]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
 
-  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
-
-  DECLARE mode int SET mode = 1
-
-  DECLARE s int
-  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
-    EXEC sys.ScriptSchema(s,mode)
-  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
-    EXEC sys.ScriptSchemaBrowse(s)
-END
-GO
 --############################################
 CREATE SCHEMA [email]
+GO
+
 CREATE TABLE [email].[Delayed]([msg] int,[error] string,[time] int) 
 GO
+
 CREATE TABLE [email].[Msg]([from] string,[to] string,[title] string,[body] string,[format] int(1),[account] int,[status] int) 
 GO
+
 CREATE TABLE [email].[Queue]([msg] int) 
 GO
+
 CREATE TABLE [email].[SendError]([msg] int,[error] string,[time] int) 
 GO
+
 CREATE TABLE [email].[SmtpAccount]([server] string,[username] string,[password] string) 
 GO
+
 CREATE FN [email].[LogSendError]( id int, retry int, error string ) AS
 
 BEGIN
@@ -2473,11 +2656,13 @@ BEGIN
   END
 END
 GO
+
 CREATE FN [email].[MsgName](id int) RETURNS string AS
 BEGIN
   SET result = '' | id
 END
 GO
+
 CREATE FN [email].[MsgSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -2495,6 +2680,7 @@ BEGIN
     | '</select>'
 END
 GO
+
 CREATE FN [email].[Retry]() AS 
 BEGIN 
   DECLARE now int SET now = date.Ticks()
@@ -2534,6 +2720,7 @@ BEGIN
 
 END
 GO
+
 CREATE FN [email].[Sent](id int) AS
 BEGIN
   DELETE FROM email.Queue WHERE msg = id
@@ -2542,11 +2729,13 @@ BEGIN
   -- EXEC email.LogSendError( id, 1, 'Testing retry!' )
 END
 GO
+
 CREATE FN [email].[SmtpAccountName](id int) RETURNS string AS
 BEGIN
   SET result = '' | id
 END
 GO
+
 CREATE FN [email].[SmtpAccountSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -2564,6 +2753,7 @@ BEGIN
     | '</select>'
 END
 GO
+
 INSERT INTO [email].[Delayed](Id,[msg],[error],[time]) VALUES 
 GO
 
@@ -2581,8 +2771,11 @@ GO
 
 --############################################
 CREATE SCHEMA [login]
+GO
+
 CREATE TABLE [login].[user]([Name] string,[HashedPassword] binary) 
 GO
+
 CREATE FN [login].[Update]( old binary, new string, id int ) RETURNS binary AS
 BEGIN
    RETURN
@@ -2592,6 +2785,7 @@ BEGIN
    END
 END
 GO
+
 CREATE FN [login].[get]( role int ) RETURNS int AS
 BEGIN
   /* Get the current logged in user, if none, output login form. Note: role is not yet checked */
@@ -2613,11 +2807,13 @@ BEGIN
   RETURN uid
 END
 GO
+
 CREATE FN [login].[hash](s string) RETURNS binary AS
 BEGIN
   SET result = ARGON(s,'Sep 14 2022 saltiness')
 END
 GO
+
 CREATE FN [login].[user]() RETURNS int AS
 BEGIN
   DECLARE username string SET username = web.Form('username')
@@ -2654,13 +2850,17 @@ BEGIN
   RETURN 0
 END
 GO
+
 INSERT INTO [login].[user](Id,[Name],[HashedPassword]) VALUES 
 GO
 
 --############################################
 CREATE SCHEMA [timed]
+GO
+
 CREATE TABLE [timed].[Job]([fn] string,[at] int) 
 GO
+
 CREATE FN [timed].[Run]() AS 
 /* 
   This function is called by the Rust program.
@@ -2680,6 +2880,7 @@ BEGIN
   EXEC timed.Sleep()
 END
 GO
+
 CREATE FN [timed].[Sleep]() AS 
 BEGIN 
   /* Set sleep time based on timed.Job table */
@@ -2699,13 +2900,17 @@ BEGIN
   SET dummy = SLEEP( next-now )
 END
 GO
+
 INSERT INTO [timed].[Job](Id,[fn],[at]) VALUES 
 GO
 
 --############################################
 CREATE SCHEMA [log]
+GO
+
 CREATE TABLE [log].[Transaction]([data] binary) 
 GO
+
 INSERT INTO [log].[Transaction](Id,[data]) VALUES 
 GO
 
@@ -2778,6 +2983,18 @@ GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'web'
 SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'File'
+SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Path'
+SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
+SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
+
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'Content',0,0,'',12)
+SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'ContentType'
+SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
+SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
+
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'Content',0,0,'',10)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Content'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
