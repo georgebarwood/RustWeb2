@@ -69,6 +69,7 @@ async fn main() -> Result<(), std::io::Error> {
         // Get write-access to database ( there will only be one of these ).
         let wapd = AccessPagedData::new_writer(spd);
         let db = Database::new(wapd, if is_master { init::INITSQL } else { "" }, bmap);
+        // _recover(&db);
         if !is_master {
             let _ = sync_tx.send(db.is_new);
         }
@@ -103,6 +104,14 @@ async fn main() -> Result<(), std::io::Error> {
             }
         });
     }
+}
+
+fn _recover(db: &rustdb::DB)
+{
+    let mut tr = rustdb::GenTransaction::default();
+    let sql = "";
+    db.run(&sql, &mut tr);
+    db.save();
 }
 
 /// Extra SQL builtin functions.
