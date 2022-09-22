@@ -1,4 +1,4 @@
-pub const INITSQL : &str = "
+﻿pub const INITSQL : &str = "
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
@@ -208,8 +208,8 @@ BEGIN
        WHEN t = 1 THEN ' WHERE Id != 1' -- Sys
        WHEN t = 2 THEN ' WHERE Id > 6' -- Table
        WHEN t = 3 THEN ' WHERE Table > 6' -- Field
-       WHEN t = 4 THEN ' WHERE Id > 6' -- Index
-       WHEN t = 5 THEN ' WHERE Index > 6' -- IndexColumn
+       WHEN t = 4 THEN ' WHERE Id > 7' -- Index
+       WHEN t = 5 THEN ' WHERE Index > 7' -- IndexColumn
        ELSE '' END
     ELSE IF mode = 2
     BEGIN
