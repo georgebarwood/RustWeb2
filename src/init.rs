@@ -1,4 +1,4 @@
-﻿pub const INITSQL : &str = "
+pub const INITSQL : &str = "
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
@@ -1487,14 +1487,12 @@ BEGIN
     DECLARE inp string
     SET inp = CASE WHEN inf = '' 
         THEN browse.Sql( 3, colId, browse.GetDatatype(type,colId) )
-        ELSE inf | '(' | colId | ',' | default | ')'
+        ELSE 'browse.Label(' | colId | ') | ' | inf | '(' | colId | ',' | default | ')'
         END
 
     IF inp != '' 
     BEGIN
-      SET sql |= CASE WHEN sql = '' THEN '' ELSE ' | ' END
-        | '''<p><label for=\"' | col | '\">' | col | '</label>: '' | ' 
-        | inp
+      SET sql |= CASE WHEN sql = '' THEN '' ELSE ' | ' END | inp
     END
   END
   RETURN CASE WHEN sql = '' THEN '' ELSE 'SELECT ' | sql END
@@ -1511,20 +1509,16 @@ BEGIN
     SET ref = 0, inf = ''
     SET ref = RefersTo, inf = InputFunction FROM browse.Column WHERE Id = colId
     IF ref > 0 AND inf = '' SET inf = SelectFunction FROM browse.Table WHERE Id = ref
-    /* IF inf = '' SET inf = browse.DefaultInput( type ) */
 
     DECLARE inp string
     SET inp = CASE WHEN inf = '' 
         THEN browse.Sql( 4, colId, browse.GetDatatype(type,colId) )
-        ELSE inf | '(' | colId | ',' | sys.QuoteName(col) | ')'
+        ELSE 'browse.Label(' | colId | ') | ' | inf | '(' | colId | ',' | sys.QuoteName(col) | ')'
         END
 
     IF inp != ''
     BEGIN
-      SET sql |= 
-        CASE WHEN sql = '' THEN '' ELSE ' | ' END
-        | '''<p><label for=\"' | col | '\">' | col | '</label>: '' | ' 
-        | inp
+      SET sql |= CASE WHEN sql = '' THEN '' ELSE ' | ' END | inp
     END
   END
   RETURN 'SELECT ' | sql | ' FROM ' | sys.TableName( table ) | ' WHERE Id =' | k
@@ -1548,12 +1542,12 @@ BEGIN
 END
 GO
 
-CREATE FN [browse].[InputBinary]( colId int, value binary ) RETURNS string AS 
+CREATE FN [browse].[InputBinary]( colid int, value binary ) RETURNS string AS 
 BEGIN 
-  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
-  DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colId
+  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colid
+  DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colid
   IF size = 0 SET size = 50
-  RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=\"' | value | '\">'
+  RETURN browse.Label(colid) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=\"' | value | '\">'
 END
 GO
 
@@ -1561,26 +1555,26 @@ CREATE FN [browse].[InputBool]( colId int, value bool ) RETURNS string AS
 BEGIN
   DECLARE cn string 
   SET cn = Name FROM sys.Column WHERE Id = colId
-  RETURN '<input type=checkbox id=\"' | cn | '\" name=\"' | cn | '\"' | CASE WHEN value THEN ' checked' ELSE '' END | '>'
+  RETURN browse.Label(colId) | '<input type=checkbox id=\"' | cn | '\" name=\"' | cn | '\"' | CASE WHEN value THEN ' checked' ELSE '' END | '>'
 END
 GO
 
-CREATE FN [browse].[InputDouble]( colId int, value double ) RETURNS string AS 
+CREATE FN [browse].[InputDouble]( colid int, value double ) RETURNS string AS 
 BEGIN 
-  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
+  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colid
   DECLARE size int 
-  SET size = InputCols FROM browse.Column WHERE Id = colId
+  SET size = InputCols FROM browse.Column WHERE Id = colid
   IF size = 0 SET size = 15
-  RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | size | '\"' | ' value=\"' | value | '\">'
+  RETURN browse.Label(colid) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | size | '\"' | ' value=\"' | value | '\">'
 END
 GO
 
-CREATE FN [browse].[InputFile]( colId int ) RETURNS string AS 
+CREATE FN [browse].[InputFile]( colid int ) RETURNS string AS 
 BEGIN 
   DECLARE cn string 
-  SET cn = Name FROM sys.Column WHERE Id = colId
+  SET cn = Name FROM sys.Column WHERE Id = colid
 
-  RETURN '<input type=file id=\"' | cn | '\" name=\"' | cn | '\">'
+  RETURN browse.Label(colid) | '<input type=file id=\"' | cn | '\" name=\"' | cn | '\">'
 END
 GO
 
@@ -1591,7 +1585,7 @@ BEGIN
   DECLARE size int
   SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 10
-  RETURN '<input type=number id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | value | '>'
+  RETURN browse.Label(colId) | '<input type=number id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | value | '>'
 END
 GO
 
@@ -1607,7 +1601,7 @@ BEGIN
       | CASE WHEN value = '' THEN 'placeholder=' | web.Attr(description) ELSE '' END
       | '\">' | web.Encode(value) | '</textarea>'
   ELSE
-    RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | cols | '\"' | ' value=' | web.Attr(value) | '>'
+    RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | cols | '\"' | ' value=' | web.Attr(value) | '>'
 END
 GO
 
@@ -1618,13 +1612,14 @@ BEGIN
   DECLARE size int
   SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 20
-  RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.MicroSecToString(value)) | '>'
+  RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.MicroSecToString(value)) | '>'
 END
 GO
 
-CREATE FN [browse].[InputTimeSql]( kind int, colid int ) RETURNS string AS
+CREATE FN [browse].[InputVersionCheck]( colid int, value int ) RETURNS string AS
 BEGIN
-   SET result = Name FROM sys.Column WHERE Id = colid
+   DECLARE name string SET name = Name FROM sys.Column WHERE Id = colid
+   RETURN '<input type=hidden name=' | name | ' value=' | value | '>'
 END
 GO
 
@@ -1635,7 +1630,7 @@ BEGIN
   DECLARE size int
   SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 10
-  RETURN '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.YearMonthDayToString(value)) | '>'
+  RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.YearMonthDayToString(value)) | '>'
 END
 GO
 
@@ -1718,6 +1713,16 @@ BEGIN
   END
 
   RETURN 'INSERT INTO ' | sys.TableName( table ) | '(' | names | ') VALUES (' | vlist | ')'
+END
+GO
+
+CREATE FN [browse].[Label]( colid int ) RETURNS string AS
+BEGIN
+  DECLARE name string, label string
+  SET name = Name FROM sys.Column WHERE Id = colid
+  SET label = Label FROM browse.Column WHERE Id = colid
+  IF label = '' SET label = name
+  RETURN '<p><label for=' | name | '>' | label | '</label>: '
 END
 GO
 
@@ -1826,6 +1831,7 @@ BEGIN
     WHEN t=10 THEN browse.SqlContentType(kind,colid)
     WHEN t=11 THEN browse.SqlImage(kind,colid)
     WHEN t=12 THEN browse.SqlFileName(kind,colid)
+    WHEN t=13 THEN browse.SqlVersionCheck(kind,colid)
     ELSE 'browseSqlInvalidDatatype' 
     END 
 END
@@ -2109,6 +2115,26 @@ BEGIN
 END
 GO
 
+CREATE FN [browse].[SqlVersionCheck]( kind int, colid int ) RETURNS string AS
+BEGIN
+   /* kind values: 
+      List=1, Show=2, Input(insert)=3, Input(update)=4, Parse(insert)=5, Parse(update) = 6 
+   */
+
+
+   SET result = CASE
+     WHEN kind = 1 OR kind = 2 THEN 'date.MicroSecToString(' | Name | ')'
+     WHEN kind = 3 THEN  ''
+     WHEN kind = 4 THEN  'browse.InputVersionCheck(' | colid | ',' | Name | ')' 
+     WHEN kind = 5 THEN  'date.Ticks()'
+     WHEN kind = 6 THEN  'browse.VersionCheck(' | Name | ',PARSEINT(web.Form(' | sys.SingleQuote(Name) | ')))' 
+     ELSE 'SqlIntegerBADKIND'
+   END
+
+   FROM sys.Column WHERE Id = colid
+END
+GO
+
 CREATE FN [browse].[TableSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -2174,6 +2200,13 @@ BEGIN
       | browse.Sql( 6, colId, browse.GetDatatype(type,colId) )
   END
   RETURN 'UPDATE ' | sys.TableName( table ) | ' SET ' | alist | ' WHERE Id =' | k
+END
+GO
+
+CREATE FN [browse].[VersionCheck]( latest int, check int ) RETURNS int AS
+BEGIN
+   IF check != latest THROW 'Version check error - record has been changed by another user'
+   RETURN date.Ticks()
 END
 GO
 
@@ -2288,6 +2321,7 @@ INSERT INTO [browse].[Datatype](Id,[Name],[DataKind],[SqlFn]) VALUES
 (10,'ContentType',2,'browse.SqlContentType')
 (11,'Image',1,'browse.SqlImage')
 (12,'FileName',2,'browse.SqlFileName')
+(13,'VersionCheck',3,'browse.SqlVersionCheck')
 GO
 
 INSERT INTO [browse].[Table](Id,[NameFunction],[SelectFunction],[DefaultOrder],[Title],[Description],[Role]) VALUES 
@@ -2822,7 +2856,7 @@ BEGIN
      Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
      In addition, the salt string in login.Hash should be changed.
   */
-  RETURN 1 -- Login disabled.
+  -- RETURN 1 -- Login disabled.
 
   DECLARE uid int
   SET uid = login.user()

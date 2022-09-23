@@ -69,16 +69,12 @@ async fn main() -> Result<(), std::io::Error> {
         // Get write-access to database ( there will only be one of these ).
         let wapd = AccessPagedData::new_writer(spd);
         let db = Database::new(wapd, "", bmap);
-        if db.is_new && is_master
-        {
-          if let Ok(init) = std::fs::read_to_string("ScriptAll.txt")
-          { 
-             exec(&db,&init);
-          }
-          else
-          { 
-             exec(&db,init::INITSQL);
-          }
+        if db.is_new && is_master {
+            if let Ok(init) = std::fs::read_to_string("ScriptAll.txt") {
+                exec(&db, &init);
+            } else {
+                exec(&db, init::INITSQL);
+            }
         }
         if !is_master {
             let _ = sync_tx.send(db.is_new);
@@ -116,7 +112,7 @@ async fn main() -> Result<(), std::io::Error> {
     }
 }
 
-fn exec(db: &rustdb::DB, sql:&str) {
+fn exec(db: &rustdb::DB, sql: &str) {
     let mut tr = rustdb::GenTransaction::default();
     db.run(sql, &mut tr);
     db.save();
