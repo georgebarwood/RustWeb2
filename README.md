@@ -30,7 +30,7 @@ Initially login security is disabled. To enable it
 
 Initialisation
 ==============
-A new database is initialised from th file ScriptAll.txt in the current directory.
+A new database is initialised from the file ScriptAll.txt in the current directory.
 
 If ScriptAll.txt does not exist a default initialisation is used.
 
