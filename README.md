@@ -28,6 +28,12 @@ Initially login security is disabled. To enable it
 
 (3) Edit the function login.get ( see instructions included there ).
 
+Initialisation
+==============
+A new database is initialised from th file ScriptAll.txt in the current directory.
+
+If ScriptAll.txt does not exist a default initialisation is used.
+
 Database replication
 ====================
 
