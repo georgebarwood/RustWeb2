@@ -202,7 +202,7 @@ GO
 
 CREATE FN [sys].[ScriptData]( t int, mode int ) AS
 BEGIN
-    DECLARE filter string
+    DECLARE filter string, tname string, schema int, sname string
 
     IF t < 6 SET filter = CASE 
        WHEN t = 1 THEN ' WHERE Id != 1' -- Sys
@@ -211,11 +211,19 @@ BEGIN
        WHEN t = 4 THEN ' WHERE Id > 7' -- Index
        WHEN t = 5 THEN ' WHERE Index > 7' -- IndexColumn
        ELSE '' END
+    ELSE IF mode = 1
+    BEGIN
+      SET tname = sys.TableName(t) 
+      SET filter = CASE
+        WHEN tname = '[log].[Transaction]'
+          OR tname = '[browse].[Column]' OR tname = '[browse].[Table]' THEN ' WHERE false'
+        ELSE '' END
+    END  
     ELSE IF mode = 2
     BEGIN
-      DECLARE tname string SET tname = sys.TableName(t) 
-      DECLARE schema int SET schema = Schema FROM sys.Table WHERE Id = t
-      DECLARE sname string SET sname = sys.SchemaName(schema)
+      SET tname = sys.TableName(t) 
+      SET schema = Schema FROM sys.Table WHERE Id = t
+      SET sname = sys.SchemaName(schema)
       SET filter = CASE
         WHEN sname = 'log' OR sname = 'email' OR sname = 'login' OR sname = 'timed'
           OR tname = '[browse].[Column]' OR tname = '[browse].[Table]' THEN ' WHERE false'
@@ -2564,20 +2572,19 @@ SELECT '
 <p><a href=/Execute>Execute SQL</a>
 <p><a href=/browse/Table?s=login&n=user>Logins</a>
 <p><a href=/browse/Table?s=web&n=File>Files</a>
-
-<p><a target=_blank href=/ScriptApp>Script App Schemas</a> 
-  | <a target=_blank href=/ScriptSystem>Script System Schemas</a>    
+<p><a target=_blank href=/ScriptAll>Script All</a> 
+  | <a target=_blank href=/ScriptSystem>Script System</a>    
   | <a target=_blank href=/ScriptExact>Exact</a>
 <p><a href=/CheckAll>Check all functions compile ok</a> 
-
 <h3>Schemas</h3>'
+
    SELECT '<a href=/browse/Schema?s=' | Name | '>' | Name | '</a> | ' FROM sys.Schema ORDER BY Name
 
    EXEC web.Trailer()
 END
 GO
 
-CREATE FN [handler].[/ScriptApp]() AS 
+CREATE FN [handler].[/ScriptAll]() AS 
 BEGIN 
   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
 
@@ -2586,9 +2593,9 @@ BEGIN
   DECLARE mode int SET mode = 1
 
   DECLARE s int
-  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
+  FOR s = Id FROM sys.Schema
     EXEC sys.ScriptSchema(s,mode)
-  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
+  FOR s = Id FROM sys.Schema
     EXEC sys.ScriptSchemaBrowse(s)
 END
 GO
