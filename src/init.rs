@@ -1,4 +1,4 @@
-pub const INITSQL : &str = "
+﻿pub const INITSQL : &str = "
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
@@ -2403,25 +2403,6 @@ BEGIN
 END
 GO
 
-CREATE FN [handler].[/GetTransaction]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  DECLARE k int SET k = PARSEINT( web.Query('k') )
-
-  DECLARE id int, d binary
-
-  SET id = Id, d = data FROM log.Transaction WHERE Id = k
-
-  IF id = k 
-    SELECT d
-  ELSE
-  BEGIN
-    DECLARE dummy int SET dummy = TRANSWAIT()
-  END
-END
-GO
-
 CREATE FN [handler].[/Logout]() AS 
 BEGIN 
     EXEC web.SetCookie( 'uid', '', '' )
@@ -2608,7 +2589,7 @@ SELECT '
 <p><a href=/browse/Table?s=web&n=File>Files</a>
 <p><a target=_blank href=/ScriptAll>Script All</a> 
   | <a target=_blank href=/ScriptSystem>Script System</a>    
-  | <a target=_blank href=/ScriptExact>Exact</a>
+  | <a target=_blank href=/log/getall>Exact</a>
 <p><a href=/CheckAll>Check all functions compile ok</a> 
 <h3>Schemas</h3>'
 
@@ -2631,18 +2612,6 @@ BEGIN
     EXEC sys.ScriptSchema(s,mode)
   FOR s = Id FROM sys.Schema
     EXEC sys.ScriptSchemaBrowse(s)
-END
-GO
-
-CREATE FN [handler].[/ScriptExact]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
-
-  DECLARE t int
-  FOR t = Id FROM sys.Table
-    EXEC sys.ScriptData(t,3)
 END
 GO
 
@@ -2856,7 +2825,7 @@ BEGIN
      Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
      In addition, the salt string in login.Hash should be changed.
   */
-  RETURN 1 -- Login disabled.
+  -- RETURN 1 -- Login disabled.
 
   DECLARE uid int
   SET uid = login.user()
@@ -2971,6 +2940,37 @@ CREATE SCHEMA [log]
 GO
 
 CREATE TABLE [log].[Transaction]([data] binary) 
+GO
+
+CREATE FN [log].[/log/get]() AS 
+BEGIN 
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  DECLARE k int SET k = PARSEINT( web.Query('k') )
+
+  DECLARE id int, d binary
+
+  SET id = Id, d = data FROM log.Transaction WHERE Id = k
+
+  IF id = k 
+    SELECT d
+  ELSE
+  BEGIN
+    DECLARE dummy int SET dummy = TRANSWAIT()
+  END
+END
+GO
+
+CREATE FN [log].[/log/getall]() AS 
+BEGIN 
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
+
+  DECLARE t int
+  FOR t = Id FROM sys.Table
+    EXEC sys.ScriptData(t,3)
+END
 GO
 
 INSERT INTO [log].[Transaction](Id,[data]) VALUES 

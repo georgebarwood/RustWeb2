@@ -15,7 +15,7 @@ pub async fn u_decay_loop(ss: Arc<SharedState>) {
 pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
     let db_is_new = rx.await.unwrap();
     if db_is_new {
-        let sql = rget(state.clone(), "/ScriptExact?readonly").await;
+        let sql = rget(state.clone(), "/log/getall").await;
         let sql = std::str::from_utf8(&sql).unwrap().to_string();
         let mut st = ServerTrans::new();
         st.log = false;
@@ -30,7 +30,7 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
             let lt = db.table("log", "Transaction");
             lt.id_gen.get()
         };
-        let url = format!("/GetTransaction?k={tid}");
+        let url = format!("/log/get?k={tid}");
         let ser = rget(state.clone(), &url).await;
         if !ser.is_empty() {
             let mut st = ServerTrans::new();
