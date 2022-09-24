@@ -14,7 +14,7 @@ Start rustweb2 using
 rustweb2 3000
 
 This should start rustweb2 server, listening on port 3000 ( you can use any available port ).
-You should then be able to browse to http://localhost:3000/Menu
+You should then be able to browse to http://localhost:3000/admin
 From there are links to a Manual, Execute SQL, a list of Schemas and other links.
 
 Security
