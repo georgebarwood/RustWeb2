@@ -120,7 +120,7 @@ GO
 
 CREATE FN [sys].[IncludeSchema]( mode int, s string ) RETURNS bool AS 
 BEGIN
-  IF s = 'sys' OR s = 'date' OR s = 'web' OR s = 'log' OR s = 'handler' OR s = 'browse'
+  IF s = 'sys' OR s = 'date' OR s = 'web' OR s = 'log' OR s = 'admin' OR s = 'browse'
     OR s = 'email' OR s = 'timed' OR s = 'login'
   RETURN mode = 2
 
@@ -782,43 +782,42 @@ BEGIN
 END
 GO
 
+CREATE FN [web].[ErrHead](title string) AS
+BEGIN 
+  EXEC web.SetContentType( 'text/html;charset=utf-8' )
+  SELECT '<html>
+<head>
+<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\">
+<title>' | title | '</title>
+<style>
+   body{font-family:sans-serif;}
+</style>
+</head>
+<body>
+'
+END
+GO
+
+CREATE FN [web].[ErrTrail]() AS 
+BEGIN 
+
+SELECT  '<p><a href=\"/\">Home</a></body></html>'
+
+END
+GO
+
 CREATE FN [web].[Form]( name string ) RETURNS string AS
 BEGIN
   RETURN ARG( 2, name )
 END
 GO
 
-CREATE FN [web].[Head]( title string ) AS 
-BEGIN 
-  EXEC web.SetContentType( 'text/html;charset=utf-8' )
-
-  DECLARE back string SET back = browse.backurl()
-
-  SELECT '<html>
-<head>
-<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-<title>' | title | '</title>
-<style>
-   body{font-family:sans-serif;}
-   body{ max-width:60em; }
-</style>
-</head>
-<body>
-<div style=\"color:white;background:lightblue;padding:4px;\">
-' | CASE WHEN back != '' THEN '<a href=\"' | back| '\">Back</a> | ' ELSE '' END | '
-<a href=/Menu>Menu</a> 
-| <a target=_blank href=/Menu>New Window</a>
-| <a href=/Manual>Manual</a>
-| <a href=/Logout>Logout</a>
-| <a target=_blank href=\"/browse/EditFunc?s=handler&n=' | web.Path() | '\">Code</a> ' | date.NowString() | ' UTC</div>'
-END
-GO
-
 CREATE FN [web].[Main]() AS 
 BEGIN 
   DECLARE path string SET path = web.Path()
-  DECLARE ok string, schema int SET ok = Name, schema = Schema FROM sys.Function WHERE Name = path /* AND Schema = 6 */
+  DECLARE ok string, schema int SET ok = Name, schema = Schema FROM sys.Function WHERE Name = path
   IF ok = path
   BEGIN
     EXECUTE( 'EXEC ' | sys.Dot(sys.SchemaName(schema),path) | '()' )
@@ -826,11 +825,11 @@ BEGIN
     SET ex = EXCEPTION()
     IF ex != ''
     BEGIN
-      EXEC web.pubhead( 'Error' )
+      EXEC web.ErrHead( 'Error' )
       SELECT '<h1>Error</h1><pre>'
       SELECT web.Encode( ex )
       SELECT '</pre>'
-      EXEC web.pubtrail()
+      EXEC web.ErrTrail()
     END
   END
   ELSE
@@ -843,9 +842,9 @@ BEGIN
     END    
     ELSE
     BEGIN
-      EXEC web.pubhead( 'Unknown page')
+      EXEC web.ErrHead( 'Unknown page')
       SELECT 'Unknown page Path=' | path
-      EXEC web.pubtrail()
+      EXEC web.ErrTrail()
     END
   END
 END
@@ -927,12 +926,6 @@ BEGIN
 END
 GO
 
-CREATE FN [web].[Trailer]() AS
-BEGIN
-  SELECT '</body></html>'
-END
-GO
-
 CREATE FN [web].[UrlEncode]( s string ) RETURNS string AS
 BEGIN
   /* Would probably be better to do this using builtin function */
@@ -943,34 +936,6 @@ BEGIN
   --SET s = REPLACE( s, '/', '%2F' )
   --SET s = REPLACE( s, '#', '%23' )
   RETURN s
-END
-GO
-
-CREATE FN [web].[pubhead](title string) AS
-BEGIN 
-  EXEC web.SetContentType( 'text/html;charset=utf-8' )
-  SELECT '<html>
-<head>
-<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\">
-<title>' | title | '</title>
-<style>
-   body{font-family:sans-serif;}
-</style>
-</head>
-<body>
-<p><a href=\"/shop/\">Home</a>
-
-'
-END
-GO
-
-CREATE FN [web].[pubtrail]() AS 
-BEGIN 
-
-SELECT  '<div class=outer3><div>Copyright © ' | ( date.TodayYMD() / 512 ) | '  Whatever Limited</div></div></body></html>'
-
 END
 GO
 
@@ -1015,13 +980,13 @@ BEGIN
   END
  
   DECLARE title string SET title = 'Add ' | browse.TableTitle( t )
-  EXEC web.Head( title )
+  EXEC admin.Head( title )
   SELECT '<b>' | title | '</b><br>'
   IF ex != '' SELECT '<p>Error: ' | ex
   SELECT '<form method=post>' 
   EXECUTE( browse.FormInsertSql( t, c ) )
   SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
-  EXEC web.Trailer()
+  EXEC admin.Trailer()
 END
 GO
 
@@ -1046,13 +1011,13 @@ BEGIN
     END
   END
   
-  EXEC web.Head( 'Add ' | browse.TableTitle( t ) )
+  EXEC admin.Head( 'Add ' | browse.TableTitle( t ) )
   IF ex != '' SELECT '<p>Error: ' | web.Encode( ex )
   SELECT '<form method=post enctype=\"multipart/form-data\">' 
   EXECUTE( browse.FormInsertSql( t, 0 ) )
 
   SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
-  EXEC web.Trailer()
+  EXEC admin.Trailer()
 END
 GO
 
@@ -1076,11 +1041,11 @@ BEGIN
   END
   ELSE
   BEGIN
-    EXEC web.Head( 'Column ' | colName )
+    EXEC admin.Head( 'Column ' | colName )
     SELECT '<h1>Column ' | colName | '</h1><form method=post>' 
     EXECUTE( browse.FormUpdateSql( tid, c ) )
     SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
-    EXEC web.Trailer()
+    EXEC admin.Trailer()
   END
 END
 GO
@@ -1099,15 +1064,15 @@ BEGIN
     SET ex = EXCEPTION()
   END
   ELSE SET def = Def FROM sys.Function WHERE Schema = sid AND Name = n 
-  EXEC web.Head( 'Edit ' | n )
+  EXEC admin.Head( 'Edit ' | n )
   IF ex != '' SELECT '<p>Error: ' | web.Encode( ex )
   SELECT 
      '<p><form method=post>'
      | '<input type=submit value=\"ALTER\"> <a href=/browse/Schema?s=' | s | '>' | s | '</a> . ' | n 
-     | CASE WHEN s = 'handler' THEN ' <a href=' | n | '>Go</a>' ELSE '' END
+     | CASE WHEN SUBSTRING(n,1,1) = '/' THEN ' <a href=' | n | '>Go</a>' ELSE '' END
      | '<br><textarea name=def rows=40 cols=150>' | web.Encode(def) | '</textarea>' 
      | '</form>' 
-  EXEC web.Trailer()
+  EXEC admin.Trailer()
 END
 GO
 
@@ -1138,7 +1103,7 @@ BEGIN
     END      
   END
  
-  EXEC web.Head( 'Edit ' | browse.TableTitle( t ) )
+  EXEC admin.Head( 'Edit ' | browse.TableTitle( t ) )
   IF ex != '' SELECT '<p>Error: ' | web.Encode(ex)
 
   SELECT '<form method=post enctype=\"multipart/form-data\">'  
@@ -1146,7 +1111,7 @@ BEGIN
   SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
 
   SELECT '<form method=post><input name=\"$submit\" type=submit value=Delete></form>'
-  EXEC web.Trailer()
+  EXEC admin.Trailer()
 END
 GO
 
@@ -1239,11 +1204,11 @@ BEGIN
   END
   ELSE
   BEGIN
-    EXEC web.Head( 'Browse Info for ' | sys.TableName(k) )
+    EXEC admin.Head( 'Browse Info for ' | sys.TableName(k) )
     SELECT '<form method=post>' 
     EXECUTE( browse.FormUpdateSql( tid, k ) )
     SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
-    EXEC web.Trailer()
+    EXEC admin.Trailer()
   END
 END
 GO
@@ -1268,7 +1233,7 @@ BEGIN
 
   DECLARE s string SET s = web.Query('s')
   DECLARE sid int SET sid = Id FROM sys.Schema WHERE Name = s
-  EXEC web.Head( 'Schema ' | s )
+  EXEC admin.Head( 'Schema ' | s )
   SELECT '<h1>Schema ' | s | '</h1>'
 
   SELECT '<p><a target=_blank href=\"/ScriptSchema?s=' | s | '\">Script</a>'
@@ -1279,7 +1244,7 @@ BEGIN
   SELECT '<h2>Functions</h2>' 
   SELECT '<p><a href=\"/browse/EditFunc?s=' | s | '&n=' | Name | ba | '\">' | Name | '</a>'
   FROM sys.Function WHERE Schema = sid ORDER BY Name
-  EXEC web.Trailer()
+  EXEC admin.Trailer()
 END
 GO
 
@@ -1293,7 +1258,7 @@ BEGIN
 
   DECLARE title string SET title = browse.TableTitle( t )
   SET title = title | ' Table'
-  EXEC web.Head( title )
+  EXEC admin.Head( title )
   SELECT '<b>' | title | '</b> <a href=/browse/Info?' | browse.tablearg(t) | ba | '>Settings</a>'   
     | '<p><b>Columns:</b> ' | browse.ColNames( t, ba )
 /*
@@ -1314,7 +1279,7 @@ BEGIN
 
   EXECUTE( sql )
 
-  EXEC web.Trailer()
+  EXEC admin.Trailer()
 END
 GO
 
@@ -1580,10 +1545,8 @@ GO
 
 CREATE FN [browse].[InputInt]( colId int, value int) RETURNS string AS 
 BEGIN 
-  DECLARE cn string 
-  SET cn = Name FROM sys.Column WHERE Id = colId
-  DECLARE size int
-  SET size = InputCols FROM browse.Column WHERE Id = colId
+  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
+  DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 10
   RETURN browse.Label(colId) | '<input type=number id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | value | '>'
 END
@@ -1607,10 +1570,8 @@ GO
 
 CREATE FN [browse].[InputTime]( colId int, value int) RETURNS string AS 
 BEGIN 
-  DECLARE cn string 
-  SET cn = Name FROM sys.Column WHERE Id = colId
-  DECLARE size int
-  SET size = InputCols FROM browse.Column WHERE Id = colId
+  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
+  DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 20
   RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.MicroSecToString(value)) | '>'
 END
@@ -1618,8 +1579,8 @@ GO
 
 CREATE FN [browse].[InputVersionCheck]( colid int, value int ) RETURNS string AS
 BEGIN
-   DECLARE name string SET name = Name FROM sys.Column WHERE Id = colid
-   RETURN '<input type=hidden name=' | name | ' value=' | value | '>'
+   SET result = '<input type=hidden name=' | Name | ' value=' | value | '>'
+   FROM sys.Column WHERE Id = colid
 END
 GO
 
@@ -1791,7 +1752,7 @@ BEGIN
     BEGIN
       DECLARE title string SET title = browse.TableTitle( t )' 
         | CASE WHEN namefunc = '' THEN '' ELSE ' | '' '' | ' | namefunc | '(k)' END | '
-      EXEC web.Head( title )
+      EXEC admin.Head( title )
       SELECT ''<b>'' | title | ''</b><br>''
   '
   | ' SELECT ' | cols | ' FROM ' | sys.TableName(table) | ' WHERE Id = k'
@@ -1806,7 +1767,7 @@ BEGIN
       EXECUTE( browse.ChildSql( col, k, '''|ba|''' ) )
     END
     SELECT ''<p><a href=\"/browse/Table?'' | browse.tablearg(t) | ''\">'' | browse.TableTitle(t) | '' Table</a>''
-    EXEC web.Trailer()
+    EXEC admin.Trailer()
   END
   ELSE
   BEGIN
@@ -2328,328 +2289,6 @@ INSERT INTO [browse].[Table](Id,[NameFunction],[SelectFunction],[DefaultOrder],[
 GO
 
 --############################################
-CREATE SCHEMA [handler]
-GO
-
-CREATE FN [handler].[/CheckAll]() AS 
-BEGIN
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  EXEC web.Head('Check All Functions compile')
-  DECLARE sid int, sname string, fname string, err int, n int
-
-  FOR sid = Id, sname = sys.QuoteName(Name) FROM sys.Schema
-  BEGIN
-    FOR fname = sys.QuoteName(Name) FROM sys.Function WHERE Schema = sid
-    BEGIN
-      -- SELECT '<br>Checking ' | sname | '.' | fname
-      EXECUTE( 'CHECK ' | sname | '.' | fname )
-      DECLARE ex string SET ex = EXCEPTION()
-      IF ex != '' 
-      BEGIN
-        SELECT '<br>Error : ' | web.Encode(ex)
-        SET err = err + 1
-      END
-      SET n = n + 1
-    END
-  END
-  SELECT '<p>' | n | ' functions checked, errors=' | err | '.'
-  EXEC web.Trailer()
-END
-GO
-
-CREATE FN [handler].[/Execute]() AS 
-BEGIN
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  DECLARE sql string SET sql = web.Form('sql')
-  EXEC web.Head( 'Execute' )
-  SELECT 
-     '<p><form method=post>'
-     | 'SQL to <input type=submit value=Execute>'
-     | '<br><textarea name=sql rows=20 cols=100' | CASE WHEN sql='' THEN ' placeholder=\"Enter SQL here. See Manual for details.\"' ELSE '' END | '>' | web.Encode(sql) | '</textarea>' 
-     | '</form>' 
-  IF sql != '' 
-  BEGIN
-    -- EXEC SETMODE( 1 ) -- Causes result tables to be displayed as HTML tables
-    EXECUTE( sql ) 
-    -- EXEC SETMODE( 0 )
-    DECLARE ex string SET ex = EXCEPTION()
-    IF ex != '' SELECT '<p>Error : ' | web.Encode(ex)
-  END
-  SELECT '<p>Example SQL:'
-     | '<br>SELECT dbo.CustName(Id) AS Name, Age FROM dbo.Cust'
-     | '<br>SELECT Cust, Total FROM dbo.Order'
-     | '<br>SELECT EMAILTX()'
-     | '<br>EXEC date.Test( 2020, 1, 1, 60 )'
-     | '<br>EXEC date.TestRoundTrip()'
-     | '<br>CREATE TABLE dbo.Cust( LastName string, Age int )'
-     | '<br>CREATE FN handler.[/MyPage]() AS BEGIN END'
-     | '<br>SELECT ''hash='' | ARGON( ''argon2i!'', ''delicious salt'' )'
-     | '<br>EXEC web.SetCookie(''username'',''fred'',''Max-Age=1000000000'')'
-     | '<br>EXEC rtest.OneTest()'
-     | '<br>CREATE INDEX ByCust ON dbo.Order(Cust)'
-     | '<br>DROP INDEX ByCust ON dbo.Order'  
-     | '<br>ALTER TABLE dbo.Cust MODIFY FirstName string(20), ADD [City] string, PostCode string'
-     | '<br>ALTER TABLE dbo.Cust DROP Postcode'
-     | '<br>DROP TABLE dbo.Cust'
-     | '<br>SELECT VERIFYDB()'
-     | '<br>SELECT REPACKFILE(0,''dbo'',''Order'')'
-     | '<br>EXEC dbo.MakeOrders(50000)'
-     | '<br>DELETE FROM dbo.Order WHERE true'
-     | '<br>SELECT ''&lt;p>Id='' | Id | '' Len='' | BINLEN(data) FROM log.Transaction'
-
-   EXEC web.Trailer()
-END
-GO
-
-CREATE FN [handler].[/Logout]() AS 
-BEGIN 
-    EXEC web.SetCookie( 'uid', '', '' )
-    EXEC web.SetCookie( 'hpw', '', '' )
-    EXEC web.Head( 'Logout' )
-    SELECT '<p>Logged out.'
-    EXEC web.Trailer()
-END
-GO
-
-CREATE FN [handler].[/Manual]() AS BEGIN
-
-DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
-
-EXEC web.Head('Manual')
-SELECT '<h1>Manual</h1>
-<p>This manual describes the various SQL statements that are available. Where syntax is described, optional elements are enclosed in square brackets.
-<h2>Schema definition</h2>
-<h3>CREATE SCHEMA</h3>
-<p>CREATE SCHEMA name
-<p>Creates a new schema. Every database object (Table, Function) has an associated schema. Schemas are used to organise database objects into logical categories.
-<h2>Table definition</h2>
-<h3>CREATE TABLE</h3><p>CREATE TABLE schema.tablename ( Colname1 Coltype1, Colname2 Coltype2, ... )
-<p>Creates a new base table. Every base table is automatically given an Id column, which auto-increments on INSERT ( if no explicit value is supplied).<p>The data types are as follows:
-<ul>
-<li>int(n), 1 <= n <= 8. Signed n-byte integer. Default is 8 bytes.</li>
-<li>float, double : floating point numbers of size 4 and 8 bytes respectively.</li>
-<li>string(n) : a variable length string of unicode characters. n (optional, default 15) specifies number of bytes stored inline.</li>
-<li>binary(n) : a variable length string of bytes. n (optional, default 15) specifies number of bytes stored inline.</li>
-<li>bool : boolean ( true or false ).</li>
-</ul>
-
-<p>Each data type has a default value : zero for numbers, a zero length string for string and binary, and false for the boolean type. The variable length data types are stored in a special system table if the length exceeds the reserved inline storage, meaning they are slightly slower to store and retrieve. Local float and integer variables and arithmetic operations are all 64 bits (8 bytes). The lower precision only applies when a value is stored in column of a table.
-<h3>ALTER TABLE</h3>
-<p>ALTER TABLE schema.tablename action1, action2 .... <p>The actions are as follows:
-<ul>
-<li>ADD Colname Coltype : a new column is added to the table.</li>
-<li>MODIFY Colname Coltype : the datatype of an existing column is changed. The only changes allowed are between the different sizes of integers, between float and double, and modification of the number of bytes stored inline for binary and string.</li>
-<li>DROP Colname : the column is removed from the table.</li>
-</ul>
-<p>Note: currently, any indexes that have been added to a table need to be dropped before using ALTER TABLE. They can be added again afterwards.
-</ul>
-<h2>Data manipulation statements</h2>
-<h3>INSERT</h3>
-<p>INSERT INTO schema.tablename ( Colname1, Colname2 ... ) VALUES ( Val1, Val2... ) [,] ( Val3, Val4 ...) ...
-<p>The specified values are inserted into the table. The values may be any expressions ( possibly involving local variables or function calls ).
-<h3>SELECT</h3><p>SELECT expressions FROM source-table [WHERE bool-exp ] [ORDER BY expressions]
-<p>A new table is computed, based on the list of expressions and the WHERE and ORDER BY clauses.
-<p>If the keyword DESC is placed after an ORDER BY expression, the order is reversed ( descending order ).
-<p>The SELECT expressions can be given names using AS.
-<p>When used as a stand-alone statement, the results are passed to the code that invoked the batch, and may be displayed to a user or sent to a client for further processing and eventual display. 
-<h3>UPDATE</h3><p>UPDATE schema.tablename SET Colname1 = Exp1, Colname2 = Exp2 .... WHERE bool-exp
-<p>Rows in the table which satisfy the WHERE condition are updated.
-<h3>DELETE</h3><p>DELETE FROM schema.tablename WHERE bool-exp
-<p>Rows in the table which satisfy the WHERE condition are removed.
-<h2>Local variable declaration and assignment statements</h2>
-<h3>DECLARE</h3><p>DECLARE name1 type1, name2 type2 ....
-<p>Local variables are declared with the specified types. The variables are initialised to default values ( but only once, not each time the DECLARE is encountered if there is a loop ).
-<h3>SET</h3>
-<p>SET name1 = exp1, name2 = exp2 .... [ FROM table ] [ WHERE bool-exp ]
-<p>Local variables are assigned. If the FROM clause is specified, the values are taken from a table row which satisfies the WHERE condition. If there is no such row, the values of the local variables remain unchanged.
-<h3>FOR</h3><p>FOR name1 = exp1, name2 = exp2 .... FROM table [ WHERE bool-exp ] [ORDER BY expressions] Statement
-<p>Statement is repeatedly executed for each row from the table which satisfies the WHERE condition, with the named local variables being assigned expressions which depend on the rows.
-<h2>Control flow statements</h2>
-<h3>BEGIN .. END</h3><p>BEGIN Statement1 Statement2 ... END
-<p>The statements are executed in order. A BEGIN..END compound statement can be used whenever a single statement is allowed.
-<h3>IF .. THEN ... ELSE ...</h3>
-<p>IF bool-exp THEN Statement1 [ ELSE Statement2 ]
-<p>If bool-exp evaluates to true Statement1 is executed, otherwise Statement2 ( if specified ) is executed.
-<h3>WHILE</h3><p>WHILE bool-exp Statement
-<p>Statement is repeatedly executed as long as bool-exp evaluates to true. See also BREAK.
-<h3>GOTO</h3><p>GOTO label
-<p>Control is transferred to the labelled statement. A label consists of a name followed by a colon (:)
-<h3>BREAK</h3><p>BREAK
-<p>Execution of the enclosing FOR or WHILE loop is terminated.
-<h2>Batch execution</h2><p>EXECUTE ( string-expression )
-<p>Evaluates the string expression, and then executes the result ( which should be a list of SQL statements ).
-<p>Note that database objects ( tables, function ) must be created in a prior batch before being used. A GO statement may be used to signify the start of a new batch.
-<h2>Stored Functions</h2>
-<h3>CREATE FN</h3><p>CREATE FN schema.name ( param1 type1, param2 type2... ) AS BEGIN statements END
-<p>A stored function ( no return value ) is created, which can later be called by an EXEC statement.
-<h3>EXEC</h3><p>EXEC schema.name( exp1, exp2 ... )
-<p>The stored function is called with the supplied parameters.
-<h3>Exceptions</h3><p>An exception will terminate the execution of a function or batch. EXCEPTION() can be used to obtain a string describing the most recent exception (and clears the exception string). If any exception occurs, the database is left unchanged.
-<h3>THROW</h3>
-<p>THROW string-expression 
-<p>An exception is raised, with the error message being set to the string.
-<h3>CREATE FN</h3><p>CREATE FN schema.name ( param1 type1, param2 type2... ) RETURNS type AS BEGIN statements END
-<p>A stored function is created which can later be used in expressions.
-<h3>RETURN</h3>
-<p>RETURN expression
-<p>Returns a value from a stored function. RETURN with no expression returns from a stored function with no return value.
-<p>The pre-defined local variable result can be assigned instead to set the return value.
-<h3>CHECK</h3>
-<p>CHECK schema.name
-<p>Checks that a function compiles ok. EXCEPTION() should be used to check if there is any error.
-
-<h2>Expressions</h2>
-<p>Expressions are composed from literals, named local variables, local parameters and named columns from tables. These may be combined using operators, stored functions, pre-defined functions. There is also the CASE expression, which has syntax CASE WHEN bool1 THEN exp1 WHEN bool2 THEN exp2 .... ELSE exp END - the result is the expression associated with the first bool expression which evaluates to true.
-<h3>Literals</h3>
-<p>String literals are written enclosed in single quotes. If a single quote is needed in a string literal, it is written as two single quotes. Binary literals are written in hexadecimal preceded by 0x. Integers are a list of digits (0-9). The bool literals are true and false.
-<h3>Names</h3><p>Names are enclosed in square brackets and are case sensitive ( although language keywords such as CREATE SELECT are case insensitive, and are written without the square brackets, often in upper case only by convention ). The square brackets can be omitted if the name consists of only letters (A-Z,a-z).
-<h3>Operators</h3>
-<p>The operators ( all binary, except for - which can be unary, and NOT which is only unary ) in order of precedence, high to low, are as follows:
-<ul>
-<li>*  / % : multiplication, division and remainder (after division) of numbers. Remainder only applies to integers.</li>
-<li>+ - : addition, subtraction of numbers.</li>
-<li>| : concatenation of string/binary values. The second expression is automatically converted to string/binary if necessary.</li>
-<li>= != > < >= <= : comparison of any data type.</li>
-<li>NOT : boolean negation ( result is true if arg is false, false if arg is true ).</li>
-<li>AND : boolean operator ( result is true if both args are true )</li>
-<li>OR : boolean operator  ( result is true if either arg is true )</li>
-</ul>
-<p>Brackets can be used where necessary, for example ( a + b ) * c.
-<h3>Pre-defined functions</h3>
-<ul>
-<li>LEN( s string ) : returns the length of s, which must be a string expression.</li>
-<li>BINLEN( s binary ) : returns the length of s, which must be a binary expression.</li> 
-<li>SUBSTRING( s string, start int, len int ) : returns the substring of s from start (1-based) length len.</li>
-<li>BINSUBSTRING( s binary, start int, len int ) : binary version of SUBSTRING.</li>
-<li>REPLACE( s string, pat string, sub string ) : returns a copy of s where every occurrence of pat is replaced with sub.</li>
-<li>LASTID() : returns the last Id value allocated by an INSERT statement.</li>
-<li>PARSEINT( s string ) : parses an integer from s.</li>
-<li>PARSEFLOAT( s string ) : parses a floating point number from s.</li>
-<li>EXCEPTION() returns a string with any error that occurred during an EXECUTE statement.</li>
-<li>REPACKFILE(k,schema,table) : A file is re-packed to free up pages. The result is an integer, the number of pages freed, or -1 if the table or index does not exist. k=0 => main file, k=1.. => an index, k in -4..-1 => byte storage files. 
-<li>VERIFYDB() : verifies the logical page structure of the database. , the result is a string. Note: this needs exclusive access to the database to give consistent results, as it can observe update activity in shared data structures. Calling it while another process is updating the database may result in an exception.
-<li>See the web schema for functions that can be used to access http requests.</li>
-</ul>
-<h3>Conversions</h3>
-<p>To be decided. Currently the only implicit conversion is to string for operands of string concatenation.
-<h2>Indexes
-<h3>CREATE INDEX</h3><p>CREATE INDEX indexname ON schema.tablename( Colname1, Colname2 ... )<p>Creates a new index. Indexes allow efficient access to rows other than by Id values. 
-<p>For example, <br>CREATE INDEX ByCust ON dbo.Order(Cust) 
-<br>creates an index allowing the orders associated with a particular customer to be efficiently retrieved without scanning the entire order table.
-<h2>Drop</h2>
-<h3>DROP object-type object-name</h3><p>object-type can be any one of SCHEMA,TABLE or FUNCTION.
-<p>The specified object is removed from the database. In the case of a SCHEMA, all objects in the SCHEMA are also removed. In the case of TABLE, all the rows in the table are also removed.
-<h3>DROP INDEX</h3><p>DROP INDEX indexname ON schema.tablename<p>The specified index is removed from the database.
-<h2>Comments</h2>
-<p>There are two kinds of comments. Single line comments start with -- and extend to the end of the line. Delimited comments start with /* and are terminated by */. Comments have no effect, they are simply to help document the code.
-<h2>Comparison with other SQL implementations</h2><p>There is a single variable length string datatype \"string\" for unicode strings ( equivalent to nvarchar(max) in MSSQL ), no fixed length strings.
-<p>Similarly there is a single binary datatype \"binary\" equivalent to varbinary(max) in MSSQL.
-<p>Every table automatically gets an integer Id field ( it does not have to be specified ), which is automatically filled in if not specified in an INSERT statement. Id values must be unique ( an attempt to insert or assign a duplicate Id will raise an exception ). 
-<p>WHERE condition is not optional in UPDATE and DELETE statements - WHERE true can be used if you really want to UPDATE or DELETE all rows. This is a \"safety\" feature.
-<p>Local variables cannot be assigned with SELECT, instead SET or FOR is used, can be FROM a table, e.g.
-<p>DECLARE s string SET s = Name FROM sys.Schema WHERE Id = schema
-<p>No cursors ( use FOR instead ).
-<p>Local variables cannot be assigned in a DECLARE statement.
-<p>No default schemas. Schema of tables and functions must always be stated explicitly.
-<p>No nulls. Columns are initialised to default a value if not specified by INSERT, or when new columns are added to a table by ALTER TABLE.
-<p>No triggers. No joins. No outer references.
-
-<h2>Guide to the system schemas</h2>
-<h3>sys</h3>
-<p>Has core system tables for language objects and related functions.
-<h3>web</h3>
-<p>Has the function that handles web requests ( web.main ) and other functions related to handling web requests.
-<h3>handler</h3>
-<p>System page handling functions.
-<h3>htm</h3>
-<p>Has functions related to encoding html.
-<h3>browse</h3><p>Has tables and functions for displaying, editing arbitrary tables in the database.
-<h3>date</h3><p>Has functions for manipulating dates - conversions between Days ( from year 0 ), Year-Day, Year-Month-Day and string.
-<h3>email</h3><p>Tables and functions for sending email.
-<h3>log</h3><p>Transaction logging for database replication.
-<h3>timed</h3><p>Timed jobs.
-
-' 
-EXEC web.Trailer()
-END
-GO
-
-CREATE FN [handler].[/Menu]() AS
-BEGIN
-   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
-
-   EXEC web.Head('System Menu')
-SELECT '
-<p><a target=_blank href=\"/\">Public Home Page</a>
-<h3>System</h3>
-<p><a href=/Execute>Execute SQL</a>
-<p><a href=/browse/Table?s=login&n=user>Logins</a>
-<p><a href=/browse/Table?s=web&n=File>Files</a>
-<p><a target=_blank href=/ScriptAll>Script All</a> 
-  | <a target=_blank href=/ScriptSystem>Script System</a>    
-  | <a target=_blank href=/log/getall>Exact</a>
-<p><a href=/CheckAll>Check all functions compile ok</a> 
-<h3>Schemas</h3>'
-
-   SELECT '<a href=/browse/Schema?s=' | Name | '>' | Name | '</a> | ' FROM sys.Schema ORDER BY Name
-
-   EXEC web.Trailer()
-END
-GO
-
-CREATE FN [handler].[/ScriptAll]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
-
-  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
-
-  DECLARE mode int SET mode = 1
-
-  DECLARE s int
-  FOR s = Id FROM sys.Schema
-    EXEC sys.ScriptSchema(s,mode)
-  FOR s = Id FROM sys.Schema
-    EXEC sys.ScriptSchemaBrowse(s)
-END
-GO
-
-CREATE FN [handler].[/ScriptSchema]() AS BEGIN 
-
-  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
-
-  DECLARE sname string SET sname = web.Query('s')
-  DECLARE s int SET s = Id FROM sys.Schema WHERE Name = sname
-
-  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
-
-  DECLARE mode int SET mode = CASE WHEN sys.IncludeSchema(1,sname) THEN 1 ELSE 2 END
-
-  EXEC sys.ScriptSchema(s,mode)
-
-  EXEC sys.ScriptSchemaBrowse(s)
-
-END
-GO
-
-CREATE FN [handler].[/ScriptSystem]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
-
-  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
-
-  DECLARE mode int SET mode = 2
-
-  DECLARE s int
-  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
-    EXEC sys.ScriptSchema(s,mode)
-  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
-    EXEC sys.ScriptSchemaBrowse(s)
-END
-GO
-
---############################################
 CREATE SCHEMA [email]
 GO
 
@@ -2807,6 +2446,16 @@ GO
 CREATE TABLE [login].[user]([Name] string,[HashedPassword] binary) 
 GO
 
+CREATE FN [login].[/login/logout]() AS 
+BEGIN 
+    EXEC web.SetCookie( 'uid', '', '' )
+    EXEC web.SetCookie( 'hpw', '', '' )
+    EXEC admin.Head( 'Logout' )
+    SELECT '<p>Logged out.'
+    EXEC admin.Trailer()
+END
+GO
+
 CREATE FN [login].[Update]( old binary, new string, id int ) RETURNS binary AS
 BEGIN
    RETURN
@@ -2825,15 +2474,15 @@ BEGIN
      Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
      In addition, the salt string in login.Hash should be changed.
   */
-  RETURN 1 -- Login disabled.
+  -- RETURN 1 -- Login disabled.
 
   DECLARE uid int
   SET uid = login.user()
   IF uid = 0
   BEGIN
-    EXEC web.Head( 'Login' )
+    EXEC admin.Head( 'Login' )
     SELECT '<form method=post>User Name <input name=username><br>Password <input type=password name=password><br><input type=submit value=Login></form>'
-    EXEC web.Trailer()
+    EXEC admin.Trailer()
   END
   RETURN uid
 END
@@ -2974,6 +2623,351 @@ END
 GO
 
 INSERT INTO [log].[Transaction](Id,[data]) VALUES 
+GO
+
+--############################################
+CREATE SCHEMA [admin]
+GO
+
+CREATE FN [admin].[/admin]() AS
+BEGIN
+   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
+
+   EXEC admin.Head('System Menu')
+
+   SELECT '
+<p><a target=_blank href=\"/\">Public Home Page</a>
+<h3>System</h3>
+<p><a href=/admin/Execute>Execute SQL</a>
+<p><a href=/browse/Table?s=login&n=user>Logins</a>
+<p><a href=/browse/Table?s=web&n=File>Files</a>
+<p><a target=_blank href=/admin/ScriptAll>Script All</a> 
+  | <a target=_blank href=/admin/ScriptSystem>Script System</a>    
+  | <a target=_blank href=/log/getall>Exact</a>
+<p><a href=/admin/CheckAll>Check all functions compile ok</a> 
+<h3>Schemas</h3>'
+
+   SELECT '<a href=/browse/Schema?s=' | Name | '>' | Name | '</a> | ' FROM sys.Schema ORDER BY Name
+
+   EXEC admin.Trailer()
+END
+GO
+
+CREATE FN [admin].[/admin/CheckAll]() AS 
+BEGIN
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  EXEC admin.Head('Check All Functions compile')
+  DECLARE sid int, sname string, fname string, err int, n int
+
+  FOR sid = Id, sname = sys.QuoteName(Name) FROM sys.Schema
+  BEGIN
+    FOR fname = sys.QuoteName(Name) FROM sys.Function WHERE Schema = sid
+    BEGIN
+      -- SELECT '<br>Checking ' | sname | '.' | fname
+      EXECUTE( 'CHECK ' | sname | '.' | fname )
+      DECLARE ex string SET ex = EXCEPTION()
+      IF ex != '' 
+      BEGIN
+        SELECT '<br>Error : ' | web.Encode(ex)
+        SET err = err + 1
+      END
+      SET n = n + 1
+    END
+  END
+  SELECT '<p>' | n | ' functions checked, errors=' | err | '.'
+  EXEC admin.Trailer()
+END
+GO
+
+CREATE FN [admin].[/admin/Execute]() AS 
+BEGIN
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  DECLARE sql string SET sql = web.Form('sql')
+  EXEC admin.Head( 'Execute' )
+  SELECT 
+     '<p><form method=post>'
+     | 'SQL to <input type=submit value=Execute>'
+     | '<br><textarea name=sql rows=20 cols=100' | CASE WHEN sql='' THEN ' placeholder=\"Enter SQL here. See Manual for details.\"' ELSE '' END | '>' | web.Encode(sql) | '</textarea>' 
+     | '</form>' 
+  IF sql != '' 
+  BEGIN
+    -- EXEC SETMODE( 1 ) -- Causes result tables to be displayed as HTML tables
+    EXECUTE( sql ) 
+    -- EXEC SETMODE( 0 )
+    DECLARE ex string SET ex = EXCEPTION()
+    IF ex != '' SELECT '<p>Error : ' | web.Encode(ex)
+  END
+  SELECT '<p>Example SQL:'
+     | '<br>SELECT dbo.CustName(Id) AS Name, Age FROM dbo.Cust'
+     | '<br>SELECT Cust, Total FROM dbo.Order'
+     | '<br>SELECT EMAILTX()'
+     | '<br>EXEC date.Test( 2020, 1, 1, 60 )'
+     | '<br>EXEC date.TestRoundTrip()'
+     | '<br>CREATE TABLE dbo.Cust( LastName string, Age int )'
+     | '<br>CREATE FN admin.[/MyPage]() AS BEGIN END'
+     | '<br>SELECT ''hash='' | ARGON( ''argon2i!'', ''delicious salt'' )'
+     | '<br>EXEC web.SetCookie(''username'',''fred'',''Max-Age=1000000000'')'
+     | '<br>EXEC rtest.OneTest()'
+     | '<br>CREATE INDEX ByCust ON dbo.Order(Cust)'
+     | '<br>DROP INDEX ByCust ON dbo.Order'  
+     | '<br>ALTER TABLE dbo.Cust MODIFY FirstName string(20), ADD [City] string, PostCode string'
+     | '<br>ALTER TABLE dbo.Cust DROP Postcode'
+     | '<br>DROP TABLE dbo.Cust'
+     | '<br>SELECT VERIFYDB()'
+     | '<br>SELECT REPACKFILE(0,''dbo'',''Order'')'
+     | '<br>EXEC dbo.MakeOrders(50000)'
+     | '<br>DELETE FROM dbo.Order WHERE true'
+     | '<br>SELECT ''&lt;p>Id='' | Id | '' Len='' | BINLEN(data) FROM log.Transaction'
+
+   EXEC admin.Trailer()
+END
+GO
+
+CREATE FN [admin].[/admin/Manual]() AS BEGIN
+
+DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
+
+EXEC admin.Head('Manual')
+SELECT '<h1>Manual</h1>
+<p>This manual describes the various SQL statements that are available. Where syntax is described, optional elements are enclosed in square brackets.
+<h2>Schema definition</h2>
+<h3>CREATE SCHEMA</h3>
+<p>CREATE SCHEMA name
+<p>Creates a new schema. Every database object (Table, Function) has an associated schema. Schemas are used to organise database objects into logical categories.
+<h2>Table definition</h2>
+<h3>CREATE TABLE</h3><p>CREATE TABLE schema.tablename ( Colname1 Coltype1, Colname2 Coltype2, ... )
+<p>Creates a new base table. Every base table is automatically given an Id column, which auto-increments on INSERT ( if no explicit value is supplied).<p>The data types are as follows:
+<ul>
+<li>int(n), 1 <= n <= 8. Signed n-byte integer. Default is 8 bytes.</li>
+<li>float, double : floating point numbers of size 4 and 8 bytes respectively.</li>
+<li>string(n) : a variable length string of unicode characters. n (optional, default 15) specifies number of bytes stored inline.</li>
+<li>binary(n) : a variable length string of bytes. n (optional, default 15) specifies number of bytes stored inline.</li>
+<li>bool : boolean ( true or false ).</li>
+</ul>
+
+<p>Each data type has a default value : zero for numbers, a zero length string for string and binary, and false for the boolean type. The variable length data types are stored in a special system table if the length exceeds the reserved inline storage, meaning they are slightly slower to store and retrieve. Local float and integer variables and arithmetic operations are all 64 bits (8 bytes). The lower precision only applies when a value is stored in column of a table.
+<h3>ALTER TABLE</h3>
+<p>ALTER TABLE schema.tablename action1, action2 .... <p>The actions are as follows:
+<ul>
+<li>ADD Colname Coltype : a new column is added to the table.</li>
+<li>MODIFY Colname Coltype : the datatype of an existing column is changed. The only changes allowed are between the different sizes of integers, between float and double, and modification of the number of bytes stored inline for binary and string.</li>
+<li>DROP Colname : the column is removed from the table.</li>
+</ul>
+<p>Note: currently, any indexes that have been added to a table need to be dropped before using ALTER TABLE. They can be added again afterwards.
+</ul>
+<h2>Data manipulation statements</h2>
+<h3>INSERT</h3>
+<p>INSERT INTO schema.tablename ( Colname1, Colname2 ... ) VALUES ( Val1, Val2... ) [,] ( Val3, Val4 ...) ...
+<p>The specified values are inserted into the table. The values may be any expressions ( possibly involving local variables or function calls ).
+<h3>SELECT</h3><p>SELECT expressions FROM source-table [WHERE bool-exp ] [ORDER BY expressions]
+<p>A new table is computed, based on the list of expressions and the WHERE and ORDER BY clauses.
+<p>If the keyword DESC is placed after an ORDER BY expression, the order is reversed ( descending order ).
+<p>The SELECT expressions can be given names using AS.
+<p>When used as a stand-alone statement, the results are passed to the code that invoked the batch, and may be displayed to a user or sent to a client for further processing and eventual display. 
+<h3>UPDATE</h3><p>UPDATE schema.tablename SET Colname1 = Exp1, Colname2 = Exp2 .... WHERE bool-exp
+<p>Rows in the table which satisfy the WHERE condition are updated.
+<h3>DELETE</h3><p>DELETE FROM schema.tablename WHERE bool-exp
+<p>Rows in the table which satisfy the WHERE condition are removed.
+<h2>Local variable declaration and assignment statements</h2>
+<h3>DECLARE</h3><p>DECLARE name1 type1, name2 type2 ....
+<p>Local variables are declared with the specified types. The variables are initialised to default values ( but only once, not each time the DECLARE is encountered if there is a loop ).
+<h3>SET</h3>
+<p>SET name1 = exp1, name2 = exp2 .... [ FROM table ] [ WHERE bool-exp ]
+<p>Local variables are assigned. If the FROM clause is specified, the values are taken from a table row which satisfies the WHERE condition. If there is no such row, the values of the local variables remain unchanged.
+<h3>FOR</h3><p>FOR name1 = exp1, name2 = exp2 .... FROM table [ WHERE bool-exp ] [ORDER BY expressions] Statement
+<p>Statement is repeatedly executed for each row from the table which satisfies the WHERE condition, with the named local variables being assigned expressions which depend on the rows.
+<h2>Control flow statements</h2>
+<h3>BEGIN .. END</h3><p>BEGIN Statement1 Statement2 ... END
+<p>The statements are executed in order. A BEGIN..END compound statement can be used whenever a single statement is allowed.
+<h3>IF .. THEN ... ELSE ...</h3>
+<p>IF bool-exp THEN Statement1 [ ELSE Statement2 ]
+<p>If bool-exp evaluates to true Statement1 is executed, otherwise Statement2 ( if specified ) is executed.
+<h3>WHILE</h3><p>WHILE bool-exp Statement
+<p>Statement is repeatedly executed as long as bool-exp evaluates to true. See also BREAK.
+<h3>GOTO</h3><p>GOTO label
+<p>Control is transferred to the labelled statement. A label consists of a name followed by a colon (:)
+<h3>BREAK</h3><p>BREAK
+<p>Execution of the enclosing FOR or WHILE loop is terminated.
+<h2>Batch execution</h2><p>EXECUTE ( string-expression )
+<p>Evaluates the string expression, and then executes the result ( which should be a list of SQL statements ).
+<p>Note that database objects ( tables, function ) must be created in a prior batch before being used. A GO statement may be used to signify the start of a new batch.
+<h2>Stored Functions</h2>
+<h3>CREATE FN</h3><p>CREATE FN schema.name ( param1 type1, param2 type2... ) AS BEGIN statements END
+<p>A stored function ( no return value ) is created, which can later be called by an EXEC statement.
+<h3>EXEC</h3><p>EXEC schema.name( exp1, exp2 ... )
+<p>The stored function is called with the supplied parameters.
+<h3>Exceptions</h3><p>An exception will terminate the execution of a function or batch. EXCEPTION() can be used to obtain a string describing the most recent exception (and clears the exception string). If any exception occurs, the database is left unchanged.
+<h3>THROW</h3>
+<p>THROW string-expression 
+<p>An exception is raised, with the error message being set to the string.
+<h3>CREATE FN</h3><p>CREATE FN schema.name ( param1 type1, param2 type2... ) RETURNS type AS BEGIN statements END
+<p>A stored function is created which can later be used in expressions.
+<h3>RETURN</h3>
+<p>RETURN expression
+<p>Returns a value from a stored function. RETURN with no expression returns from a stored function with no return value.
+<p>The pre-defined local variable result can be assigned instead to set the return value.
+<h3>CHECK</h3>
+<p>CHECK schema.name
+<p>Checks that a function compiles ok. EXCEPTION() should be used to check if there is any error.
+
+<h2>Expressions</h2>
+<p>Expressions are composed from literals, named local variables, local parameters and named columns from tables. These may be combined using operators, stored functions, pre-defined functions. There is also the CASE expression, which has syntax CASE WHEN bool1 THEN exp1 WHEN bool2 THEN exp2 .... ELSE exp END - the result is the expression associated with the first bool expression which evaluates to true.
+<h3>Literals</h3>
+<p>String literals are written enclosed in single quotes. If a single quote is needed in a string literal, it is written as two single quotes. Binary literals are written in hexadecimal preceded by 0x. Integers are a list of digits (0-9). The bool literals are true and false.
+<h3>Names</h3><p>Names are enclosed in square brackets and are case sensitive ( although language keywords such as CREATE SELECT are case insensitive, and are written without the square brackets, often in upper case only by convention ). The square brackets can be omitted if the name consists of only letters (A-Z,a-z).
+<h3>Operators</h3>
+<p>The operators ( all binary, except for - which can be unary, and NOT which is only unary ) in order of precedence, high to low, are as follows:
+<ul>
+<li>*  / % : multiplication, division and remainder (after division) of numbers. Remainder only applies to integers.</li>
+<li>+ - : addition, subtraction of numbers.</li>
+<li>| : concatenation of string/binary values. The second expression is automatically converted to string/binary if necessary.</li>
+<li>= != > < >= <= : comparison of any data type.</li>
+<li>NOT : boolean negation ( result is true if arg is false, false if arg is true ).</li>
+<li>AND : boolean operator ( result is true if both args are true )</li>
+<li>OR : boolean operator  ( result is true if either arg is true )</li>
+</ul>
+<p>Brackets can be used where necessary, for example ( a + b ) * c.
+<h3>Pre-defined functions</h3>
+<ul>
+<li>LEN( s string ) : returns the length of s, which must be a string expression.</li>
+<li>BINLEN( s binary ) : returns the length of s, which must be a binary expression.</li> 
+<li>SUBSTRING( s string, start int, len int ) : returns the substring of s from start (1-based) length len.</li>
+<li>BINSUBSTRING( s binary, start int, len int ) : binary version of SUBSTRING.</li>
+<li>REPLACE( s string, pat string, sub string ) : returns a copy of s where every occurrence of pat is replaced with sub.</li>
+<li>LASTID() : returns the last Id value allocated by an INSERT statement.</li>
+<li>PARSEINT( s string ) : parses an integer from s.</li>
+<li>PARSEFLOAT( s string ) : parses a floating point number from s.</li>
+<li>EXCEPTION() returns a string with any error that occurred during an EXECUTE statement.</li>
+<li>REPACKFILE(k,schema,table) : A file is re-packed to free up pages. The result is an integer, the number of pages freed, or -1 if the table or index does not exist. k=0 => main file, k=1.. => an index, k in -4..-1 => byte storage files. 
+<li>VERIFYDB() : verifies the logical page structure of the database. , the result is a string. Note: this needs exclusive access to the database to give consistent results, as it can observe update activity in shared data structures. Calling it while another process is updating the database may result in an exception.
+<li>See the web schema for functions that can be used to access http requests.</li>
+</ul>
+<h3>Conversions</h3>
+<p>To be decided. Currently the only implicit conversion is to string for operands of string concatenation.
+<h2>Indexes
+<h3>CREATE INDEX</h3><p>CREATE INDEX indexname ON schema.tablename( Colname1, Colname2 ... )<p>Creates a new index. Indexes allow efficient access to rows other than by Id values. 
+<p>For example, <br>CREATE INDEX ByCust ON dbo.Order(Cust) 
+<br>creates an index allowing the orders associated with a particular customer to be efficiently retrieved without scanning the entire order table.
+<h2>Drop</h2>
+<h3>DROP object-type object-name</h3><p>object-type can be any one of SCHEMA,TABLE or FUNCTION.
+<p>The specified object is removed from the database. In the case of a SCHEMA, all objects in the SCHEMA are also removed. In the case of TABLE, all the rows in the table are also removed.
+<h3>DROP INDEX</h3><p>DROP INDEX indexname ON schema.tablename<p>The specified index is removed from the database.
+<h2>Comments</h2>
+<p>There are two kinds of comments. Single line comments start with -- and extend to the end of the line. Delimited comments start with /* and are terminated by */. Comments have no effect, they are simply to help document the code.
+<h2>Comparison with other SQL implementations</h2><p>There is a single variable length string datatype \"string\" for unicode strings ( equivalent to nvarchar(max) in MSSQL ), no fixed length strings.
+<p>Similarly there is a single binary datatype \"binary\" equivalent to varbinary(max) in MSSQL.
+<p>Every table automatically gets an integer Id field ( it does not have to be specified ), which is automatically filled in if not specified in an INSERT statement. Id values must be unique ( an attempt to insert or assign a duplicate Id will raise an exception ). 
+<p>WHERE condition is not optional in UPDATE and DELETE statements - WHERE true can be used if you really want to UPDATE or DELETE all rows. This is a \"safety\" feature.
+<p>Local variables cannot be assigned with SELECT, instead SET or FOR is used, can be FROM a table, e.g.
+<p>DECLARE s string SET s = Name FROM sys.Schema WHERE Id = schema
+<p>No cursors ( use FOR instead ).
+<p>Local variables cannot be assigned in a DECLARE statement.
+<p>No default schemas. Schema of tables and functions must always be stated explicitly.
+<p>No nulls. Columns are initialised to default a value if not specified by INSERT, or when new columns are added to a table by ALTER TABLE.
+<p>No triggers. No joins. No outer references.
+
+<h2>Guide to the system schemas</h2>
+<h3>admin</h3><p>System administration.
+<h3>browse</h3><p>Functions for displaying, editing arbitrary tables in the database.
+<h3>date</h3><p>Functions for manipulating dates - conversions between Days ( from year 0 ), Year-Day, Year-Month-Day and string.
+<h3>email</h3><p>Tables and functions for sending email.
+<h3>log</h3><p>Transaction logging for database replication.
+<h3>sys</h3><p>Core system tables for language objects and related functions.
+<h3>timed</h3><p>Timed jobs.
+<h3>web</h3><p>Functions for handling web requests including main entry point ( web.main ).
+' 
+EXEC admin.Trailer()
+END
+GO
+
+CREATE FN [admin].[/admin/ScriptAll]() AS 
+BEGIN 
+  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
+
+  EXEC web.SetContentType( 'text/plain;charset=utf-8' )
+
+  DECLARE mode int SET mode = 1
+
+  DECLARE s int
+  FOR s = Id FROM sys.Schema
+    EXEC sys.ScriptSchema(s,mode)
+  FOR s = Id FROM sys.Schema
+    EXEC sys.ScriptSchemaBrowse(s)
+END
+GO
+
+CREATE FN [admin].[/admin/ScriptSchema]() AS BEGIN 
+
+  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
+
+  DECLARE sname string SET sname = web.Query('s')
+  DECLARE s int SET s = Id FROM sys.Schema WHERE Name = sname
+
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
+
+  DECLARE mode int SET mode = CASE WHEN sys.IncludeSchema(1,sname) THEN 1 ELSE 2 END
+
+  EXEC sys.ScriptSchema(s,mode)
+
+  EXEC sys.ScriptSchemaBrowse(s)
+
+END
+GO
+
+CREATE FN [admin].[/admin/ScriptSystem]() AS 
+BEGIN 
+  DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
+
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
+
+  DECLARE mode int SET mode = 2
+
+  DECLARE s int
+  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
+    EXEC sys.ScriptSchema(s,mode)
+  FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
+    EXEC sys.ScriptSchemaBrowse(s)
+END
+GO
+
+CREATE FN [admin].[Head]( title string ) AS 
+BEGIN 
+  EXEC web.SetContentType( 'text/html;charset=utf-8' )
+
+  DECLARE back string SET back = browse.backurl()
+
+  DECLARE path string SET path = web.Path()
+  DECLARE schema int SET schema = Schema FROM sys.Function WHERE Name = path
+  DECLARE sname string SET sname = Name FROM sys.Schema WHERE Id = schema
+  
+
+  SELECT '<html>
+<head>
+<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<title>' | title | '</title>
+<style>
+   body{font-family:sans-serif;}
+   body{ max-width:60em; }
+</style>
+</head>
+<body>
+<div style=\"color:white;background:lightblue;padding:4px;\">
+' | CASE WHEN back != '' THEN '<a href=\"' | back| '\">Back</a> | ' ELSE '' END | '
+<a href=/admin>Admin Home</a> 
+| <a target=_blank href=/admin>New Window</a>
+| <a href=/admin/Manual>Manual</a>
+| <a href=/login/logout>Logout</a>
+| <a target=_blank href=\"/browse/EditFunc?s=' | sname | '&n=' | web.Path() | '\">Code</a> ' | date.NowString() | ' UTC</div>'
+END
+GO
+
+CREATE FN [admin].[Trailer]() AS
+BEGIN
+  SELECT '</body></html>'
+END
 GO
 
 DECLARE tid int, sid int, cid int, rs int, rt int
