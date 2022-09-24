@@ -70,11 +70,9 @@ async fn main() -> Result<(), std::io::Error> {
         let wapd = AccessPagedData::new_writer(spd);
         let db = Database::new(wapd, "", bmap);
         if db.is_new && is_master {
-            if let Ok(init) = std::fs::read_to_string("ScriptAll.txt") {
-                exec(&db, &init);
-            } else {
-                exec(&db, init::INITSQL);
-            }
+            let f = std::fs::read_to_string("ScriptAll.txt");
+            let init = if let Ok(f) = &f { f } else { init::INITSQL };
+            exec(&db, init);
         }
         if !is_master {
             let _ = sync_tx.send(db.is_new);

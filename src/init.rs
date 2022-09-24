@@ -1,4 +1,4 @@
-﻿pub const INITSQL : &str = "
+pub const INITSQL : &str = "
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
