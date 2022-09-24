@@ -2825,7 +2825,7 @@ BEGIN
      Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
      In addition, the salt string in login.Hash should be changed.
   */
-  -- RETURN 1 -- Login disabled.
+  RETURN 1 -- Login disabled.
 
   DECLARE uid int
   SET uid = login.user()
