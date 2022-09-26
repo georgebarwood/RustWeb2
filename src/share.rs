@@ -47,7 +47,13 @@ pub struct SharedState {
 }
 
 /// Usage array ( total or limit ).
-pub type UA = [u64; 4];
+pub type UA = [u64; U_NUM];
+
+/// Number of usage counters.
+pub const U_NUM : usize = 4;
+
+/// Index into usage array for number of requests.
+pub const U_COUNT: usize = 0;
 
 /// Index into usage array for request read usage.
 pub const U_READ: usize = 1;
@@ -62,16 +68,16 @@ pub const U_WRITE: usize = 3;
 #[derive(Debug)]
 pub struct UseInfo {
     /// Running totals of amount of CPU/IO etc. used.
-    used: UA,
+    pub used: UA,
     /// Limits on usage.
-    limit: UA,
+    pub limit: UA,
 }
 
 impl UseInfo {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            used: [0; 4],
-            limit: [0; 4],
+            used: [0; U_NUM],
+            limit: [0; U_NUM],
         }
     }
 }

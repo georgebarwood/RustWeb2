@@ -1,4 +1,4 @@
-use crate::share::{Error, ServerTrans, SharedState, UA, U_CPU, U_READ, U_WRITE};
+use crate::share::{Error, ServerTrans, SharedState, UseInfo, U_COUNT, U_CPU, U_READ, U_WRITE};
 use rustdb::{gentrans::GenQuery, Transaction};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ pub async fn process(
             st.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
             st = ss.process(st).await;
             st.x.qy.sql = save;
-            r.budget = ss.u_budget(st.uid.clone());
+            r.u.limit = ss.u_budget(st.uid.clone());
             st.readonly = false;
 
             if ct == b"application/x-www-form-urlencoded" {
@@ -58,7 +58,7 @@ pub async fn process(
             // println!("qy={:?} readonly={}", st.x.qy, readonly);
             st = ss.process(st).await;
             r.uid = st.uid.clone();
-            r.used[U_CPU] = st.run_time.as_micros() as u64;
+            r.u.used[U_CPU] = st.run_time.as_micros() as u64;
             if ss.tracetime {
                 println!(
                     "run {} time={}µs updates={}",
@@ -71,9 +71,9 @@ pub async fn process(
         (header(&st), st.x.rp.output)
     };
 
-    let budget = r.budget[U_WRITE];
-    write(&mut w, &hdrs, budget, &mut r.used[U_WRITE]).await?;
-    write(&mut w, &outp, budget, &mut r.used[U_WRITE]).await?;
+    let budget = r.u.limit[U_WRITE];
+    write(&mut w, &hdrs, budget, &mut r.u.used[U_WRITE]).await?;
+    write(&mut w, &outp, budget, &mut r.u.used[U_WRITE]).await?;
     ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
 
     Ok(())
@@ -155,9 +155,9 @@ impl Headers {
                     (b'x', b'r') => {
                         if let Some(line) = line_is(line, b"x-real-ip") {
                             let ip = tos(line);
-                            br.budget = br.ss.u_budget(ip.clone());
+                            br.u.limit = br.ss.u_budget(ip.clone());
                             br.uid = ip;
-                            if br.budget[0] == 0 {
+                            if br.u.limit[U_COUNT] == 0 {
                                 return Err(tmr());
                             }
                         }
@@ -370,15 +370,17 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
     Ok(())
 }
 
+/// Buffer size.
+const BUFFER_SIZE : usize = 2048;
+
 /// Buffer for reading tcp input stream, with budget check.
 struct Buffer<'a> {
     stream: tokio::net::tcp::ReadHalf<'a>,
-    buf: [u8; 2048],
+    buf: [u8; BUFFER_SIZE],
     i: usize,
     n: usize,
     total: u64,
-    budget: UA,
-    used: UA,
+    u: UseInfo,
     timer: std::time::SystemTime,
     ss: Arc<SharedState>,
     uid: String,
@@ -387,38 +389,43 @@ struct Buffer<'a> {
 impl<'a> Drop for Buffer<'a> {
     fn drop(&mut self) {
         self.read_complete();
-        self.ss.u_inc(&self.uid, self.used);
+        self.ss.u_inc(&self.uid, self.u.used);
     }
 }
 
 impl<'a> Buffer<'a> {
+    /// Create a new Buffer.
     fn new(stream: tokio::net::tcp::ReadHalf<'a>, ss: Arc<SharedState>, uid: String) -> Self {
-        let budget = ss.u_budget(uid.clone());
-        Self {
+        let limit = ss.u_budget(uid.clone());
+        let mut result = Self {
             stream,
             buf: [0; 2048],
             i: 0,
             n: 0,
             total: 0,
-            budget,
-            used: [1, 0, 0, 0],
             timer: std::time::SystemTime::now(),
             ss,
+            u: UseInfo::new(),
             uid,
-        }
+        };
+        result.u.used[U_COUNT] = 1;
+        result.u.limit = limit;
+        result
     }
 
+    /// Update used read counter based on total bytes read and elapsed time.
     fn read_complete(&mut self) {
         if self.total != 0 {
             let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
-            self.used[U_READ] = elapsed as u64 * self.total as u64;
+            self.u.used[U_READ] = elapsed as u64 * self.total as u64;
             self.total = 0;
         }
     }
 
+    /// Fill the buffer. A timeout is set based on the total already read and the buffer size.
     async fn fill(&mut self) -> Result<(), Error> {
         self.i = 0;
-        let micros = self.budget[U_READ] / (self.total + 1000);
+        let micros = self.u.limit[U_READ] / (self.total + BUFFER_SIZE as u64);
         let bm = core::time::Duration::from_micros(micros as u64);
         let used = self.timer.elapsed().unwrap();
         if used >= bm {
