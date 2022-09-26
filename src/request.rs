@@ -371,7 +371,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
 }
 
 /// Buffer size.
-const BUFFER_SIZE : usize = 2048;
+const BUFFER_SIZE: usize = 2048;
 
 /// Buffer for reading tcp input stream, with budget check.
 struct Buffer<'a> {
@@ -405,7 +405,7 @@ impl<'a> Buffer<'a> {
             total: 0,
             timer: std::time::SystemTime::now(),
             ss,
-            u: UseInfo::new(),
+            u: UseInfo::default(),
             uid,
         };
         result.u.used[U_COUNT] = 1;

@@ -47,10 +47,7 @@ pub struct SharedState {
 }
 
 /// Usage array ( total or limit ).
-pub type UA = [u64; U_NUM];
-
-/// Number of usage counters.
-pub const U_NUM : usize = 4;
+pub type UA = [u64; 4];
 
 /// Index into usage array for number of requests.
 pub const U_COUNT: usize = 0;
@@ -65,7 +62,7 @@ pub const U_CPU: usize = 2;
 pub const U_WRITE: usize = 3;
 
 /// Information kept on usage for each user.
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct UseInfo {
     /// Running totals of amount of CPU/IO etc. used.
     pub used: UA,
@@ -73,19 +70,10 @@ pub struct UseInfo {
     pub limit: UA,
 }
 
-impl UseInfo {
-    pub fn new() -> Self {
-        Self {
-            used: [0; U_NUM],
-            limit: [0; U_NUM],
-        }
-    }
-}
-
 impl SharedState {
     pub fn u_budget(&self, uid: String) -> UA {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(uid).or_insert_with(UseInfo::new);
+        let info = m.entry(uid).or_insert_with(UseInfo::default);
         if info.limit[0] == 0 {
             info.limit = self.dos_limit;
         }
@@ -120,7 +108,7 @@ impl SharedState {
 
     pub fn u_set_limits(&self, u: String, limit: UA) -> bool {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(u).or_insert_with(UseInfo::new);
+        let info = m.entry(u).or_insert_with(UseInfo::default);
         info.limit = limit;
         for i in 0..4 {
             if info.used[i] >= info.limit[i] {

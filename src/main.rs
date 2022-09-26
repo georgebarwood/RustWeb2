@@ -1,7 +1,7 @@
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
-    println!("args={:?}", args);
+    // println!("args={:?}", args);
 
     let listen = format!("{}:{}", args.ip, args.port);
     let is_master = args.rep.is_empty();
