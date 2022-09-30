@@ -117,15 +117,15 @@ fn exec(db: &rustdb::DB, sql: &str) {
 }
 
 /// Extra SQL builtin functions.
-pub mod builtins;
+mod builtins;
 /// SQL initialisation string.
-pub mod init;
+mod init;
 /// http request processing.
-pub mod request;
+mod request;
 /// Shared data structures.
-pub mod share;
+mod share;
 /// Tasks for email, sync etc.
-pub mod tasks;
+mod tasks;
 
 use mimalloc::MiMalloc;
 use rustc_hash::FxHashMap as HashMap;

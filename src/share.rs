@@ -62,7 +62,7 @@ pub const U_CPU: usize = 2;
 pub const U_WRITE: usize = 3;
 
 /// Information kept on usage for each user.
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct UseInfo {
     /// Running totals of amount of CPU/IO etc. used.
     pub used: UA,

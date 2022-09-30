@@ -437,47 +437,8 @@ GO
 
 CREATE FN [date].[StringToDays]( s string ) RETURNS int AS
 BEGIN
-  -- Typical input is 'Feb 2 2020'
-  DECLARE ms string, month int
-  SET ms = SUBSTRING( s, 1, 3 )
-  SET month = CASE 
-    WHEN ms = 'Jan' THEN 1
-    WHEN ms = 'Feb' THEN 2
-    WHEN ms = 'Mar' THEN 3
-    WHEN ms = 'Apr' THEN 4
-    WHEN ms = 'May' THEN 5
-    WHEN ms = 'Jun' THEN 6
-    WHEN ms = 'Jul' THEN 7
-    WHEN ms = 'Aug' THEN 8
-    WHEN ms = 'Sep' THEN 9
-    WHEN ms = 'Oct' THEN 10
-    WHEN ms = 'Nov' THEN 11
-    WHEN ms = 'Dec' THEN 12
-    ELSE 0
-  END  
-  IF month = 0 THROW 'Unknown month parsing date ' | web.Attr(ms)
-  DECLARE six int -- Index of first space
-  SET six = 4
-  WHILE true
-  BEGIN
-    IF six > LEN(s) BREAK
-    IF SUBSTRING( s, six, 1 ) = ' ' BREAK
-    SET six = six + 1
-  END
-  DECLARE ssix int
-  SET ssix = six+1
-  WHILE true
-  BEGIN
-    IF ssix > LEN(s) BREAK
-    IF SUBSTRING( s, ssix, 1 ) = ' ' BREAK
-    SET ssix = ssix + 1
-  END
- 
-  DECLARE day int, year int
-  SET day = PARSEINT( SUBSTRING( s, six+1, ssix - six - 1) )
-  IF day < 1 OR day > 31 THROW 'Day must be 1..31 parsing date ' | web.Attr(''|day)
-  SET year = PARSEINT( SUBSTRING( s, ssix + 1, LEN(s) ) )
-  RETURN date.YearMonthDayToDays( date.YearMonthDay( year, month, day ) )
+  IF s = '' RETURN 0
+  RETURN date.YearMonthDayToDays( date.StringToYearMonthDay(s) )
 END
 GO
 
@@ -567,7 +528,49 @@ GO
 
 CREATE FN [date].[StringToYearMonthDay]( s string ) RETURNS int AS
 BEGIN
-  RETURN date.DaysToYearMonthDay( date.StringToDays( s ) )
+  IF s = '' RETURN 0
+  -- Typical input is 'Feb 2 2020'
+  DECLARE ms string, month int
+  SET ms = SUBSTRING( s, 1, 3 )
+  SET month = CASE 
+    WHEN ms = 'Jan' THEN 1
+    WHEN ms = 'Feb' THEN 2
+    WHEN ms = 'Mar' THEN 3
+    WHEN ms = 'Apr' THEN 4
+    WHEN ms = 'May' THEN 5
+    WHEN ms = 'Jun' THEN 6
+    WHEN ms = 'Jul' THEN 7
+    WHEN ms = 'Aug' THEN 8
+    WHEN ms = 'Sep' THEN 9
+    WHEN ms = 'Oct' THEN 10
+    WHEN ms = 'Nov' THEN 11
+    WHEN ms = 'Dec' THEN 12
+    WHEN ms = '???' THEN 0
+    ELSE -1
+  END  
+  IF month < 0 THROW 'Unknown month parsing date ' | web.Attr(ms)
+  DECLARE six int -- Index of first space
+  SET six = 4
+  WHILE true
+  BEGIN
+    IF six > LEN(s) BREAK
+    IF SUBSTRING( s, six, 1 ) = ' ' BREAK
+    SET six = six + 1
+  END
+  DECLARE ssix int
+  SET ssix = six+1
+  WHILE true
+  BEGIN
+    IF ssix > LEN(s) BREAK
+    IF SUBSTRING( s, ssix, 1 ) = ' ' BREAK
+    SET ssix = ssix + 1
+  END
+ 
+  DECLARE day int, year int
+  SET day = PARSEINT( SUBSTRING( s, six+1, ssix - six - 1) )
+  IF day < 0 OR day > 31 THROW 'Day must be 1..31 parsing date ' | web.Attr(''|day)
+  SET year = PARSEINT( SUBSTRING( s, ssix + 1, LEN(s) ) )
+  RETURN date.YearMonthDay( year, month, day )
 END
 GO
 
@@ -714,6 +717,7 @@ GO
 
 CREATE FN [date].[YearMonthDayToString]( ymd int ) RETURNS string AS
 BEGIN
+  IF ymd = 0 RETURN ''
   DECLARE y int, m int, d int
   SET d = ymd % 32
   SET m = ymd / 32
@@ -729,6 +733,11 @@ BEGIN
   -- Extract y, m, d from ymd
   SET d = ymd % 32, m = ymd / 32  
   SET y = m / 16, m = m % 16
+
+  -- If month or day is zero assume Jan / 1st.
+  IF m = 0 SET m = 1
+  IF d = 0 SET d = 1 
+
   -- Incorporate m into d ( assuming Feb has 29 days ).
   SET d = d + CASE
     WHEN m = 1 THEN 0 -- Jan
@@ -947,10 +956,7 @@ GO
 CREATE SCHEMA [browse]
 GO
 
-CREATE TABLE [browse].[Column]([Position] int,[Label] string,[Description] string,[RefersTo] int,[Default] string,[InputCols] int,[InputFunction] string,[InputRows] int,[Datatype] int) 
-GO
-
-CREATE INDEX [ByRefersTo] ON [browse].[Column]([RefersTo])
+CREATE TABLE [browse].[Column]([Position] int,[Label] string,[Description] string,[RefersTo] int,[Default] string,[InputCols] int,[InputFunction] string,[InputRows] int,[Datatype] int,[ChildDisplayFunction] string) 
 GO
 
 CREATE TABLE [browse].[Datatype]([Name] string,[DataKind] int,[SqlFn] string) 
@@ -1169,7 +1175,8 @@ BEGIN
 
   DECLARE k int SET k = browse.tableid()
 
-  DECLARE tid int SET tid = 9
+  DECLARE tid int SET tid = 10
+
   DECLARE ok int SET ok = 0
   SET ok = Id FROM browse.Table WHERE Id = k
   IF ok != k INSERT INTO browse.Table( Id ) VALUES ( k )
@@ -1186,6 +1193,79 @@ BEGIN
     SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
     EXEC admin.Trailer()
   END
+END
+GO
+
+CREATE FN [browse].[/browse-NewColumn]() AS 
+BEGIN
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  DECLARE s string SET s = web.Query('s')
+  DECLARE n string SET n = web.Query('n')
+  DECLARE cn string SET cn = web.Form('cn')
+
+  IF cn != '' 
+  BEGIN
+    DECLARE dt int SET dt = PARSEINT( web.Form('dt') )
+    DECLARE dk int SET dk = DataKind FROM browse.Datatype WHERE Id = dt
+
+
+    DECLARE t string SET t = CASE
+    WHEN dk = 1 THEN 'binary'
+    WHEN dk = 2 THEN 'string'
+    WHEN dk = 3 THEN 'int'
+    WHEN dk = 4 THEN 'float'
+    WHEN dk = 5 THEN 'bool'
+    ELSE '??'
+    END
+
+    EXECUTE( 'ALTER TABLE' | sys.Dot(s,n) | ' ADD ' | cn | ' ' | t )
+    DECLARE sid int, tid int, colid int
+    SET sid = Id FROM sys.Schema WHERE Name = s
+    SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = n
+    SET colid = Id FROM sys.Column WHERE Table = tid AND Name = cn    
+    INSERT INTO browse.Column( Id, Datatype ) VALUES ( colid, dt )
+    EXEC web.Redirect( browse.backurl() )
+    RETURN
+  END
+
+  EXEC admin.Head( 'New Column' )
+
+  DECLARE opt string, options string
+  FOR opt = '<option '  | ' value=' | Id | '>' | browse.DatatypeName(Id) | '</option>'
+  FROM browse.Datatype
+  ORDER BY browse.DatatypeName(Id)
+  SET options |= opt
+
+  SELECT '<form method=post><p>New Column Name: <input name=cn>
+<p>Datatype: <select name=dt>' | options | '<select> 
+<p><input type=submit value=\"Ok\">
+</form>' 
+  EXEC admin.Trailer()
+  
+END
+GO
+
+CREATE FN [browse].[/browse-NewTable]() AS
+BEGIN
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  DECLARE s string SET s = web.Query('s')
+  DECLARE n string SET n = web.Form('n')
+
+  IF n != '' 
+  BEGIN
+    EXECUTE( 'CREATE TABLE' | sys.Dot(s,n) | '()' )
+    EXEC web.Redirect( '/browse-Table?s=' | s | '&n=' | n )
+    RETURN
+  END
+
+  EXEC admin.Head( 'New Table' )
+
+  SELECT '<form method=post><p>New Table Name: <input name=n> <input type=submit value=\"Ok\"></form>' 
+
+  EXEC admin.Trailer()
+
 END
 GO
 
@@ -1214,6 +1294,7 @@ BEGIN
   EXEC admin.Head( title )
   SELECT '<b>' | title | '</b> <a href=/browse-Info?' | browse.tablearg(t) | ba | '>Settings</a>'   
     | '<p><b>Columns:</b> ' | browse.ColNames( t, ba )
+    | ' <a href=\"/browse-NewColumn?' | browse.tablearg(t) | ba | '\">New Column</a>'
 /*
   SELECT '<p><b>Indexes</b>'
   SELECT '<br>' | sys.QuoteName(Name) | ' ' | sys.IndexCols(Id)
@@ -1221,10 +1302,13 @@ BEGIN
 */
   SELECT '<p><b>Rows</b> <a href=\"/browse-AddRow?' | browse.tablearg(t) | ba | '\">Add</a>'
 
+  DECLARE colvalues string SET colvalues = browse.ColValues(t,ba)
+  IF colvalues != '' SET colvalues = '|' | colvalues 
+
   DECLARE orderBy string SET orderBy = DefaultOrder FROM browse.Table WHERE Id = t
   DECLARE sql string SET sql ='SELECT ''<br><a href=\"/browse-Row?' | browse.tablearg(t)
-    | '&k=''| Id | ''' | ba |'\">Show</a> ''| ''''|' 
-    | browse.ColValues(Id,ba)  
+    | '&k=''| Id | ''' | ba |'\">Show</a> '''
+    | colvalues
     | ' FROM ' 
     | sys.TableName(Id)
     | CASE WHEN orderBy != '' THEN ' ORDER BY ' | orderBy ELSE '' END
@@ -1262,6 +1346,20 @@ CREATE FN [browse].[BrowseColumnName]( k int ) RETURNS string AS
 BEGIN
   SET result = sys.TableName( Table ) | '.' | sys.QuoteName( Name )
   FROM sys.Column WHERE Id = k
+END
+GO
+
+CREATE FN [browse].[ChildDisplay]( colid int, k int, ba string ) AS 
+BEGIN
+
+  DECLARE table int
+  SET table = Table FROM sys.Column WHERE Id = colid
+
+  SELECT '<p><b>' | browse.TableTitle( table ) | '</b>'
+     | ' <a href=\"/browse-AddChild?' | browse.fieldarg(colid) | '&p=' | k | ba | '\">Add</a>'
+
+  EXECUTE( browse.ChildSql( colid, k, ba ) )
+
 END
 GO
 
@@ -1696,9 +1794,11 @@ BEGIN
         END
   END
   DECLARE namefunc string SET namefunc = NameFunction FROM browse.Table WHERE Id = table
+
   RETURN '  
     DECLARE t int SET t = '|table|'
     DECLARE k int SET k = '|k|'
+    DECLARE ba string SET ba = '|sys.SingleQuote(ba)|'
 
     DECLARE ok int SET ok = Id FROM ' | sys.TableName(table) | ' WHERE Id = k
     IF ok = k
@@ -1711,14 +1811,16 @@ BEGIN
   | ' SELECT ' | cols | ' FROM ' | sys.TableName(table) | ' WHERE Id = k'
   | ' SELECT ''<p><a href=\"/browse-EditRow?'' | browse.tablearg(t) | ''&k='' | k | '''| ba |'\">Edit</a>'''
   | '
-    DECLARE col int
-    FOR col = Id FROM browse.Column WHERE RefersTo = t
+
+    DECLARE col int, cd string
+    FOR col = Id, cd = ChildDisplayFunction FROM browse.Column WHERE RefersTo = t
     BEGIN
-      SELECT ''<p><b>'' | browse.TableTitle( Table ) | ''</b>''
-       | '' <a href=\"/browse-AddChild?'' | browse.fieldarg(col) | ''&p='' | k | '''|ba|'\">Add</a>''
-      FROM sys.Column WHERE Id = col
-      EXECUTE( browse.ChildSql( col, k, '''|ba|''' ) )
+      IF cd = '''' SET cd = ''browse.ChildDisplay''
+      DECLARE sql string
+      SET sql = ''EXEC '' | cd | ''('' | col | '','' | k | '','' | sys.SingleQuote(ba) | '')''
+      EXECUTE( sql )
     END
+
     SELECT ''<p><a href=\"/browse-Table?'' | browse.tablearg(t) | ''\">'' | browse.TableTitle(t) | '' Table</a>''
     EXEC admin.Trailer()
   END
@@ -1781,9 +1883,17 @@ BEGIN
    /* kind values: 
       List=1, Show=2, Input(insert)=3, Input(update)=4, Parse(insert)=5, Parse(update) = 6 
    */
+
+   DECLARE default string
+   IF kind = 3 
+   BEGIN
+      SET default = Default FROM browse.Column WHERE Id = colid
+      IF default = '' SET default = 'false'
+   END
  
    SET result = CASE
      WHEN kind = 1 OR kind = 2 THEN Name 
+     WHEN kind = 3 THEN  'browse.InputBool(' | colid | ',' | default | ')' 
      WHEN kind = 4 THEN  'browse.InputBool(' | colid | ',' | Name | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'browse.ParseBool(web.Form(' | sys.SingleQuote(Name) | '))' 
      ELSE 'SqlBoolBADKIND'
@@ -2219,7 +2329,7 @@ BEGIN
 END
 GO
 
-INSERT INTO [browse].[Column](Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputFunction],[InputRows],[Datatype]) VALUES 
+INSERT INTO [browse].[Column](Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputFunction],[InputRows],[Datatype],[ChildDisplayFunction]) VALUES 
 GO
 
 INSERT INTO [browse].[Datatype](Id,[Name],[DataKind],[SqlFn]) VALUES 
@@ -2589,13 +2699,13 @@ BEGIN
    EXEC admin.Head('Admin Home')
 
    SELECT '
-<p><a target=_blank href=\"/\">Home Page</a>
+<p><a target=_blank href=\"/\">Domain Home</a>
 <p><a href=/admin-Execute>Execute SQL</a>
 <p><a href=/browse-Table?s=login&n=user>Logins</a>
 <p><a href=/browse-Table?s=web&n=File>Files</a>
 <p><a target=_blank href=/admin-ScriptAll>Script All</a> 
   | <a target=_blank href=/admin-ScriptSystem>Script System</a>    
-  | <a target=_blank href=/log/getall>Exact</a>
+  | <a target=_blank href=/log-getall>Exact</a>
 <p><a href=/admin-CheckAll>Check all functions compile ok</a> 
 <h3>Schemas</h3>'
 
@@ -2678,6 +2788,7 @@ BEGIN
     IF ex != '' SELECT '<p>Error : ' | web.Encode(ex)
   END
   SELECT '<p>Example SQL:'
+     | '<br>SELECT ''&lt;p>'' | Id | '' '' | sys.TableName(Id) FROM sys.Table'
      | '<br>SELECT dbo.CustName(Id) AS Name, Age FROM dbo.Cust'
      | '<br>SELECT Cust, Total FROM dbo.Order'
      | '<br>SELECT EMAILTX()'
@@ -2898,11 +3009,11 @@ BEGIN
 
   SELECT '<p><a target=_blank href=\"/admin-ScriptSchema?s=' | s | '\">Script</a>'
  
-  SELECT '<h2>Tables <a href=\"/browse-NewTable?s=' | s | ba | '\">New</a></h2>'
+  SELECT '<h3>Tables <a href=\"/browse-NewTable?s=' | s | ba | '\">New Table</a></h3>'
   SELECT '<p><a href=\"/browse-Table?' | browse.tablearg(Id) | ba | '\">' | Name | '</a>'
   FROM sys.Table WHERE Schema = sid ORDER BY Name
 
-  SELECT '<h2>Functions <a href=\"/admin-NewFunc?s=' | s | ba | '\">New</a></h2>' 
+  SELECT '<h3>Functions <a href=\"/admin-NewFunc?s=' | s | ba | '\">New Function</a></h3>' 
   SELECT '<p><a href=\"/admin-EditFunc?s=' | s | '&n=' | Name | ba | '\">' | Name | '</a>'
   FROM sys.Function WHERE Schema = sid ORDER BY Name
   EXEC admin.Trailer()
@@ -3106,6 +3217,12 @@ SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Datatype'
 
 INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
 VALUES (cid, -2,'','',rt,'',0,0,'',0)
+SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'ChildDisplayFunction'
+SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
+SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
+
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
+VALUES (cid, 110,'','',rt,'',0,0,'',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'browse'
