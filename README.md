@@ -92,3 +92,5 @@ Links
 crates.io : https://crates.io/crates/rustweb2
 
 repository: https://github.com/georgebarwood/Rustweb2
+
+blog: https://rustdb.wordpress.com/
