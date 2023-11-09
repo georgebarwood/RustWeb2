@@ -69,7 +69,7 @@ impl CExp<i64> for Sleep {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
         let to = self.to.eval(ee, d);
         let mut ext = ee.tr.get_extension();
-        if let Some(mut ext) = ext.downcast_mut::<TransExt>() {
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.sleep = if to <= 0 { 1 } else { to as u64 };
         }
         ee.tr.set_extension(ext);
@@ -134,7 +134,7 @@ struct EmailTx {}
 impl CExp<i64> for EmailTx {
     fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {
         let mut ext = ee.tr.get_extension();
-        if let Some(mut ext) = ext.downcast_mut::<TransExt>() {
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.tx_email = true;
         }
         ee.tr.set_extension(ext);
@@ -153,7 +153,7 @@ struct TransWait {}
 impl CExp<i64> for TransWait {
     fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {
         let mut ext = ee.tr.get_extension();
-        if let Some(mut ext) = ext.downcast_mut::<TransExt>() {
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.trans_wait = true;
         }
         ee.tr.set_extension(ext);
@@ -172,7 +172,7 @@ struct ToPdf {}
 impl CExp<i64> for ToPdf {
     fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {
         let mut ext = ee.tr.get_extension();
-        if let Some(mut ext) = ext.downcast_mut::<TransExt>() {
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.to_pdf = true;
         }
         ee.tr.set_extension(ext);

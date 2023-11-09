@@ -166,7 +166,7 @@ struct Args {
     dos_read: u64,
 
     /// Denial of Service CPU Limit
-    #[arg(long, value_parser, default_value_t = 100_000)]
+    #[arg(long, value_parser, default_value_t = 1000_000)]
     dos_cpu: u64,
 
     /// Denial of Service Write Response Limit

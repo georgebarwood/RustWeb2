@@ -2925,6 +2925,7 @@ SELECT '<h1>Manual</h1>
 <li>SUBSTRING( s string, start int, len int ) : returns the substring of s from start (1-based) length len.</li>
 <li>BINSUBSTRING( s binary, start int, len int ) : binary version of SUBSTRING.</li>
 <li>REPLACE( s string, pat string, sub string ) : returns a copy of s where every occurrence of pat is replaced with sub.</li>
+<li>CONTAINS( s string, pat string ) : returns the index of the first occurrence of pat in s, or -1 if there is none.</li>
 <li>LASTID() : returns the last Id value allocated by an INSERT statement.</li>
 <li>PARSEINT( s string ) : parses an integer from s.</li>
 <li>PARSEFLOAT( s string ) : parses a floating point number from s.</li>
