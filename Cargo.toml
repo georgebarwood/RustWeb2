@@ -26,7 +26,7 @@ serde = { version = "1.0.142", features = ["derive","rc"] }
 reqwest = "0.11.11"
 
 lettre = { version = "0.10.1" }
-flate3 = "0.1.21"
+flate3 = "0.1.22"
 argon2rs = "0.2.5"
 pdf-min = "0.1.2"
 
