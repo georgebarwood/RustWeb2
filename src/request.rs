@@ -215,7 +215,7 @@ fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a [u8]> {
 
 /// Map upper case char to lower case.
 fn lower(mut b: u8) -> u8 {
-    if (b'A'..=b'Z').contains(&b) {
+    if b.is_ascii_uppercase() {
         b += 32;
     }
     b
@@ -417,7 +417,7 @@ impl<'a> Buffer<'a> {
     fn read_complete(&mut self) {
         if self.total != 0 {
             let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
-            self.u.used[U_READ] = elapsed as u64 * self.total as u64;
+            self.u.used[U_READ] = elapsed * self.total;
             self.total = 0;
         }
     }
@@ -426,7 +426,7 @@ impl<'a> Buffer<'a> {
     async fn fill(&mut self) -> Result<(), Error> {
         self.i = 0;
         let micros = self.u.limit[U_READ] / (self.total + BUFFER_SIZE as u64);
-        let bm = core::time::Duration::from_micros(micros as u64);
+        let bm = core::time::Duration::from_micros(micros);
         let used = self.timer.elapsed().unwrap();
         if used >= bm {
             return Err(tmr());
@@ -502,7 +502,7 @@ async fn write<'a>(
     if !data.is_empty() {
         let timer = std::time::SystemTime::now();
         let micros = (budget - *used) / (data.len() as u64 + 1000);
-        let timeout = core::time::Duration::from_micros(micros as u64);
+        let timeout = core::time::Duration::from_micros(micros);
         tokio::select! {
             _ = tokio::time::sleep(timeout) =>
                 {

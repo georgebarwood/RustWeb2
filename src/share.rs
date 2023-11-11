@@ -73,7 +73,7 @@ pub struct UseInfo {
 impl SharedState {
     pub fn u_budget(&self, uid: String) -> UA {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(uid).or_insert_with(UseInfo::default);
+        let info = m.entry(uid).or_default();
         if info.limit[0] == 0 {
             info.limit = self.dos_limit;
         }
@@ -108,7 +108,7 @@ impl SharedState {
 
     pub fn u_set_limits(&self, u: String, limit: UA) -> bool {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(u).or_insert_with(UseInfo::default);
+        let info = m.entry(u).or_default();
         info.limit = limit;
         for i in 0..4 {
             if info.used[i] >= info.limit[i] {

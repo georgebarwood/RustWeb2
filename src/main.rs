@@ -87,7 +87,7 @@ async fn main() -> Result<(), std::io::Error> {
                     let ser = bincode::serialize(&sm.st.x.qy).unwrap();
                     let ser = Value::RcBinary(Rc::new(ser));
                     let mut row = t.row();
-                    row.id = t.alloc_id() as i64;
+                    row.id = t.alloc_id();
                     row.values[0] = ser;
                     t.insert(&db, &mut row);
                 }
