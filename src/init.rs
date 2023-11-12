@@ -189,10 +189,10 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = ' | sys.SingleQuote(cnam
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = ' | sys.SingleQuote(rsname) | ' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ' | sys.SingleQuote(rtname) | '
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
 VALUES (cid, '
       |Position|','|sys.SingleQuote(Label)|','|sys.SingleQuote(Description)
-      |',rt,'|sys.SingleQuote(Default)|','|InputCols|','|InputRows|','|sys.SingleQuote(InputFunction)|','|Datatype|')'
+      |',rt,'|sys.SingleQuote(Default)|','|InputCols|','|InputRows|','|sys.SingleQuote(InputFunction)|','|sys.SingleQuote(ChildDisplayFunction)|','|Datatype|')'
     FROM browse.Column WHERE Id = cid
   END
   SELECT '
@@ -2925,7 +2925,6 @@ SELECT '<h1>Manual</h1>
 <li>SUBSTRING( s string, start int, len int ) : returns the substring of s from start (1-based) length len.</li>
 <li>BINSUBSTRING( s binary, start int, len int ) : binary version of SUBSTRING.</li>
 <li>REPLACE( s string, pat string, sub string ) : returns a copy of s where every occurrence of pat is replaced with sub.</li>
-<li>CONTAINS( s string, pat string ) : returns the index of the first occurrence of pat in s, or -1 if there is none.</li>
 <li>LASTID() : returns the last Id value allocated by an INSERT statement.</li>
 <li>PARSEINT( s string ) : parses an integer from s.</li>
 <li>PARSEFLOAT( s string ) : parses a floating point number from s.</li>
@@ -3116,14 +3115,14 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Table'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'sys' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Table'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Type'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'sys'
@@ -3132,8 +3131,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Schema'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'sys' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Schema'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'sys'
@@ -3144,8 +3143,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Table'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'sys' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Table'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'sys'
@@ -3154,8 +3153,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Index'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'sys' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Index'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'sys'
@@ -3172,8 +3171,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Schema'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'sys' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Schema'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'web'
@@ -3182,20 +3181,20 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Path'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'Content',0,0,'',12)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'Content',0,0,'','',12)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'ContentType'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'Content',0,0,'',10)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'Content',0,0,'','',10)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Content'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',5)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',5)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'browse'
@@ -3204,26 +3203,26 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'RefersTo'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'sys' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Table'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, -1,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, -1,'','',rt,'',0,0,'','',0)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'InputFunction'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 100,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 100,'','',rt,'',0,0,'','',0)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'Datatype'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'browse' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Datatype'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, -2,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, -2,'','',rt,'',0,0,'','',0)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'ChildDisplayFunction'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 110,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 110,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'browse'
@@ -3234,8 +3233,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'DataKind'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'browse'
@@ -3248,14 +3247,14 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'msg'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'email' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Msg'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'time'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'email'
@@ -3266,14 +3265,14 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'format'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','0 means body is plain text, 1 means HTML.',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','0 means body is plain text, 1 means HTML.',rt,'',0,0,'','',0)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'account'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'email' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'SmtpAccount'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'email'
@@ -3282,8 +3281,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'msg'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'email' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Msg'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',0)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',0)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'email'
@@ -3292,20 +3291,20 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'msg'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = 'email' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = 'Msg'
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',1)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',1)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'error'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',2)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',2)
 SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'time'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'',3)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'',0,0,'','',3)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'email'
@@ -3320,8 +3319,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'HashedPassword'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'Password','',rt,'',0,0,'',7)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'Password','',rt,'',0,0,'','',7)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'timed'
@@ -3330,8 +3329,8 @@ SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'at'
 SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
 SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
 
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'date.Ticks()',0,0,'browse.InputTime',3)
+INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
+VALUES (cid, 0,'','',rt,'date.Ticks()',0,0,'browse.InputTime','',3)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'log'

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-/// Process http requests.
+/// Process http request.
 pub async fn process(
     mut stream: tokio::net::TcpStream,
     ip: String,

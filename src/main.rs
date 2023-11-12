@@ -55,7 +55,7 @@ async fn main() -> Result<(), std::io::Error> {
         let ssc = ss.clone();
         tokio::spawn(async move { tasks::sleep_loop(sleep_rx, ssc).await });
     } else {
-        // Start the database reeplication task.
+        // Start the database replication task.
         let ssc = ss.clone();
         tokio::spawn(async move { tasks::sync_loop(sync_rx, ssc).await });
     }
@@ -104,7 +104,7 @@ async fn main() -> Result<(), std::io::Error> {
         let ssc = ss.clone();
         tokio::spawn(async move {
             if let Err(x) = request::process(stream, src.ip().to_string(), ssc).await {
-                println!("End request process result={:?}", x);
+                println!("End request process error={:?}", x);
             }
         });
     }
@@ -193,7 +193,7 @@ struct Args {
     #[arg(long, value_parser, default_value_t = false)]
     tracemem: bool,
 
-    /// Trace memory DoS
+    /// Trace DoS
     #[arg(long, value_parser, default_value_t = false)]
     tracedos: bool,
 }
