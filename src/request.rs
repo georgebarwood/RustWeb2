@@ -30,17 +30,19 @@ pub async fn process(
         st.x.qy.params = h.args;
         st.x.qy.cookies = h.cookies;
         let (ct, clen) = (&h.content_type, h.content_length);
+
+        // Set limits based on login info etc.
+        st.readonly = true;
+        let save = st.x.qy.sql.clone();
+        st.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
+        st = ss.process(st).await;
+        st.x.qy.sql = save;
+        r.u.limit = ss.u_budget(st.uid.clone());
+        st.readonly = false;
+
         if ct.is_empty() {
             // No body.
         } else {
-            st.readonly = true;
-            let save = st.x.qy.sql.clone();
-            st.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
-            st = ss.process(st).await;
-            st.x.qy.sql = save;
-            r.u.limit = ss.u_budget(st.uid.clone());
-            st.readonly = false;
-
             if ct == b"application/x-www-form-urlencoded" {
                 let clen: usize = clen.parse()?;
                 let bytes = r.read(clen).await?;
