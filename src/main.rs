@@ -162,15 +162,15 @@ struct Args {
     dos_count: u64,
 
     /// Denial of Service Read Request Limit
-    #[arg(long, value_parser, default_value_t = 1_000_000_000_000)]
+    #[arg(long, value_parser, default_value_t = 1_000_000)]
     dos_read: u64,
 
     /// Denial of Service CPU Limit
-    #[arg(long, value_parser, default_value_t = 1000_000)]
+    #[arg(long, value_parser, default_value_t = 10_000_000)]
     dos_cpu: u64,
 
     /// Denial of Service Write Response Limit
-    #[arg(long, value_parser, default_value_t = 1_000_000_000_000)]
+    #[arg(long, value_parser, default_value_t = 1_000_000)]
     dos_write: u64,
 
     /// Memory limit for page cache (in MB)

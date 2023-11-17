@@ -413,20 +413,20 @@ impl<'a> Buffer<'a> {
         result
     }
 
-    /// Update used read counter based on total bytes read and elapsed time.
+    /// Update used read counter based on total bytes read (KB) and elapsed time (milli-seconds).
     fn read_complete(&mut self) {
         if self.total != 0 {
-            let elapsed = 1 + self.timer.elapsed().unwrap().as_micros() as u64;
-            self.u.used[U_READ] = elapsed * self.total;
+            let elapsed = 1 + self.timer.elapsed().unwrap().as_millis() as u64;
+            self.u.used[U_READ] = elapsed * ( self.total >> 10 );
             self.total = 0;
         }
     }
 
-    /// Fill the buffer. A timeout is set based on the total already read and the buffer size.
+    /// Fill the buffer. A timeout is set based on the total already read and the buffer size (KB).
     async fn fill(&mut self) -> Result<(), Error> {
         self.i = 0;
-        let micros = self.u.limit[U_READ] / (self.total + BUFFER_SIZE as u64);
-        let bm = core::time::Duration::from_micros(micros);
+        let lim = self.u.limit[U_READ] / ((self.total + BUFFER_SIZE as u64) >> 10);
+        let bm = core::time::Duration::from_millis(lim);
         let used = self.timer.elapsed().unwrap();
         if used >= bm {
             return Err(tmr());
@@ -501,8 +501,8 @@ async fn write<'a>(
     let mut result = Ok(());
     if !data.is_empty() {
         let timer = std::time::SystemTime::now();
-        let micros = (budget - *used) / (data.len() as u64 + 1000);
-        let timeout = core::time::Duration::from_micros(micros);
+        let lim = (budget - *used) / ((data.len() >> 10) + 1 ) as u64;
+        let timeout = core::time::Duration::from_millis(lim);
         tokio::select! {
             _ = tokio::time::sleep(timeout) =>
                 {
@@ -514,7 +514,7 @@ async fn write<'a>(
                 }
         }
         let elapsed = timer.elapsed().unwrap();
-        *used += elapsed.as_micros() as u64 * data.len() as u64;
+        *used += elapsed.as_millis() as u64 * (data.len() as u64 >> 10);
     }
     result
 }
