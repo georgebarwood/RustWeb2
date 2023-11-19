@@ -23,7 +23,7 @@ pub fn get_bmap() -> BuiltinMap {
             "BINUNPACK",
             DataKind::Binary,
             CompileFunc::Value(c_binunpack),
-        ),
+        )
     ];
     for (name, typ, cf) in list {
         bmap.insert(name.to_string(), (typ, cf));
