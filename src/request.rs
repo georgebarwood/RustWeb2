@@ -42,16 +42,14 @@ pub async fn process(
 
         if ct.is_empty() {
             // No body.
+        } else if ct == b"application/x-www-form-urlencoded" {
+            let clen: usize = clen.parse()?;
+            let bytes = r.read(clen).await?;
+            st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+        } else if is_multipart(ct) {
+            get_multipart(&mut r, &mut st.x.qy).await?;
         } else {
-            if ct == b"application/x-www-form-urlencoded" {
-                let clen: usize = clen.parse()?;
-                let bytes = r.read(clen).await?;
-                st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-            } else if is_multipart(ct) {
-                get_multipart(&mut r, &mut st.x.qy).await?;
-            } else {
-                st.x.rp.status_code = 501;
-            }
+            st.x.rp.status_code = 501;
         }
         r.read_complete();
 
@@ -121,7 +119,7 @@ impl Headers {
         let mut pq = Vec::new();
         br.read_until(b' ', &mut pq).await?;
         pq.pop(); // Remove trailing space.
-        r.split_pq(&pq);
+        r.split_pq(&pq)?;
 
         let mut protocol = Vec::new();
         br.read_until(b'\n', &mut protocol).await?;
@@ -139,24 +137,24 @@ impl Headers {
                 match (b0, b2) {
                     (b'c', b'o') => {
                         if let Some(line) = line_is(line, b"cookie") {
-                            r.cookies = cookie_map(line);
+                            r.cookies = cookie_map(line)?;
                         }
                     }
                     (b'c', b'n') => {
                         if let Some(line) = line_is(line, b"content-type") {
                             r.content_type = line.to_vec();
                         } else if let Some(line) = line_is(line, b"content-length") {
-                            r.content_length = tos(line);
+                            r.content_length = tos(line)?;
                         }
                     }
                     (b'h', b's') => {
                         if let Some(line) = line_is(line, b"host") {
-                            r.host = tos(line);
+                            r.host = tos(line)?;
                         }
                     }
                     (b'x', b'r') => {
                         if let Some(line) = line_is(line, b"x-real-ip") {
-                            let ip = tos(line);
+                            let ip = tos(line)?;
                             br.u.limit = br.ss.u_budget(ip.clone());
                             br.uid = ip;
                             if br.u.limit[U_COUNT] == 0 {
@@ -173,7 +171,7 @@ impl Headers {
     }
 
     /// Split the path and args by finding '?'.
-    fn split_pq(&mut self, pq: &[u8]) {
+    fn split_pq(&mut self, pq: &[u8]) -> Result<(), Error> {
         let n = pq.len();
         let mut i = 0;
         let mut q = n;
@@ -184,12 +182,13 @@ impl Headers {
             }
             i += 1;
         }
-        self.path = tos(&pq[0..q]);
+        self.path = tos(&pq[0..q])?;
         if q != n {
             q += 1;
         }
         let qs = &pq[q..n];
-        self.args = serde_urlencoded::from_bytes(qs).unwrap();
+        self.args = serde_urlencoded::from_bytes(qs)?;
+        Ok(())
     }
 }
 
@@ -224,8 +223,8 @@ fn lower(mut b: u8) -> u8 {
 }
 
 /// Convert byte slice into string.
-fn tos(s: &[u8]) -> String {
-    std::str::from_utf8(s).unwrap().to_string()
+fn tos(s: &[u8]) -> Result<String, Error> {
+    Ok(std::str::from_utf8(s)?.to_string())
 }
 
 /// Not enough input.
@@ -244,7 +243,7 @@ fn bad() -> Error {
 }
 
 /// Parse cookie header to a map of cookies.
-fn cookie_map(s: &[u8]) -> BTreeMap<String, String> {
+fn cookie_map(s: &[u8]) -> Result<BTreeMap<String, String>, Error> {
     let mut map = BTreeMap::new();
     let n = s.len();
     let mut i = 0;
@@ -257,17 +256,17 @@ fn cookie_map(s: &[u8]) -> BTreeMap<String, String> {
         while i < n && s[i] != b'=' {
             i += 1;
         }
-        let name = tos(&s[start..i]);
+        let name = tos(&s[start..i])?;
         i += 1;
         let start = i;
         while i < n && s[i] != b';' {
             i += 1;
         }
-        let value = tos(&s[start..i]);
+        let value = tos(&s[start..i])?;
         i += 1;
         map.insert(name, value);
     }
-    map
+    Ok(map)
 }
 
 /// Check content-type is multipart.
@@ -282,17 +281,23 @@ fn split_cd(s: &[u8]) -> Option<(String, String)> {
     /* Expected input:
        form-data; name="file"; filename="logo.png"
     */
-    let s = "multipart/".to_string() + std::str::from_utf8(s).unwrap();
-    let (mut name, mut filename) = ("", "");
-    let m: mime::Mime = s.parse().ok()?;
-    assert!(m.subtype() == mime::FORM_DATA);
-    if let Some(n) = m.get_param("name") {
-        name = n.as_str()
+    if let Ok(s) = std::str::from_utf8(s) {
+        let s = "multipart/".to_string() + s;
+        let (mut name, mut filename) = ("", "");
+        let m: mime::Mime = s.parse().ok()?;
+        if m.subtype() != mime::FORM_DATA {
+            return None;
+        }
+        if let Some(n) = m.get_param("name") {
+            name = n.as_str()
+        }
+        if let Some(n) = m.get_param("filename") {
+            filename = n.as_str()
+        }
+        Some((name.to_string(), filename.to_string()))
+    } else {
+        None
     }
-    if let Some(n) = m.get_param("filename") {
-        filename = n.as_str()
-    }
-    Some((name.to_string(), filename.to_string()))
 }
 
 /*
@@ -338,7 +343,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
             }
             let line = &line0[0..n - 2];
             if let Some(line) = line_is(line, b"content-type") {
-                part.content_type = tos(line);
+                part.content_type = tos(line)?;
                 // Note: if part content-type is multipart, maybe it should be parsed.
             } else if let Some(line) = line_is(line, b"content-disposition") {
                 if let Some((name, file_name)) = split_cd(line) {
@@ -362,7 +367,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
             }
         }
         if part.content_type.is_empty() {
-            let value = String::from_utf8(data).unwrap();
+            let value = tos(&data)?;
             q.form.insert(part.name, value);
         } else {
             part.data = Arc::new(data);
@@ -419,7 +424,7 @@ impl<'a> Buffer<'a> {
     fn read_complete(&mut self) {
         if self.total != 0 {
             let elapsed = 1 + self.timer.elapsed().unwrap().as_millis() as u64;
-            self.u.used[U_READ] = elapsed * ( self.total >> 10 );
+            self.u.used[U_READ] = elapsed * (self.total >> 10);
             self.total = 0;
         }
     }
@@ -503,7 +508,7 @@ async fn write<'a>(
     let mut result = Ok(());
     if !data.is_empty() {
         let timer = std::time::SystemTime::now();
-        let lim = (budget - *used) / ((data.len() >> 10) + 1 ) as u64;
+        let lim = (budget - *used) / ((data.len() >> 10) + 1) as u64;
         let timeout = core::time::Duration::from_millis(lim);
         tokio::select! {
             _ = tokio::time::sleep(timeout) =>
