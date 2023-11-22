@@ -67,6 +67,15 @@ pub async fn process(
                     st.updates
                 );
             }
+            if ss.tracemem {
+                let s = ss.spd.stash.lock().unwrap();
+                println!(
+                    "stash limit={} used={} free={}",
+                    s.mem_limit,
+                    s.total,
+                    s.mem_limit - s.total
+                );
+            }
         }
         (header(&st), st.x.rp.output)
     };

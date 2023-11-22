@@ -44,6 +44,9 @@ pub struct SharedState {
 
     /// Trace Dos
     pub tracedos: bool,
+
+    /// Trace memory
+    pub tracemem: bool,
 }
 
 /// Usage array ( total or limit ).

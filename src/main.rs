@@ -16,8 +16,8 @@ async fn main() -> Result<(), std::io::Error> {
     let spd = Arc::new(SharedPagedData::new(stg));
     {
         let mut s = spd.stash.lock().unwrap();
-        s.mem_limit = args.mem * 1000000;
-        s.trace = args.tracemem;
+        s.mem_limit = args.mem << 20;
+        // s.trace = args.tracemem;
     }
 
     let bmap = Arc::new(builtins::get_bmap());
@@ -44,6 +44,7 @@ async fn main() -> Result<(), std::io::Error> {
         dos: Arc::new(Mutex::new(HashMap::default())),
         tracetime: args.tracetime,
         tracedos: args.tracedos,
+        tracemem: args.tracemem,
     });
 
     if is_master {

@@ -193,8 +193,7 @@ struct Binpack {
 impl CExp<Value> for Binpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         if let Value::RcBinary(data) = self.bytes.eval(ee, d) {
-            let mut comp = flate3::Compressor::new();
-            let cb: Vec<u8> = comp.deflate(&data);
+            let cb: Vec<u8> = flate3::deflate(&data);
             Value::RcBinary(Rc::new(cb))
         } else {
             panic!();
