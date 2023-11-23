@@ -128,7 +128,6 @@ mod share;
 /// Tasks for email, sync etc.
 mod tasks;
 
-use mimalloc::MiMalloc;
 use rustc_hash::FxHashMap as HashMap;
 use rustdb::{
     AccessPagedData, AtomicFile, Database, ObjRef, SharedPagedData, SimpleFileStorage, Value,
@@ -141,9 +140,9 @@ use std::{
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Memory allocator ( MiMalloc ).
-#[global_allocator]
-static MEMALLOC: MiMalloc = MiMalloc;
-
+//use mimalloc::MiMalloc;
+//#[global_allocator]
+//static MEMALLOC: MiMalloc = MiMalloc;
 use clap::Parser;
 
 /// Command line arguments.

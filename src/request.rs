@@ -70,10 +70,14 @@ pub async fn process(
             if ss.tracemem {
                 let s = ss.spd.stash.lock().unwrap();
                 println!(
-                    "stash limit={} used={} free={}",
+                    "stash limit={} used={} free={} pages={} cached={} read={} misses={}",
                     s.mem_limit,
                     s.total,
-                    s.mem_limit - s.total
+                    s.mem_limit - s.total,
+                    s.pages.len(),
+                    s.heap.v.len(),
+                    s.read,
+                    s.miss
                 );
             }
         }
