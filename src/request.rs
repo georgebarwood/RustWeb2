@@ -75,7 +75,7 @@ pub async fn process(
                     s.total,
                     s.mem_limit - s.total,
                     s.pages.len(),
-                    s.heap.v.len(),
+                    s.cached(),
                     s.read,
                     s.miss
                 );
