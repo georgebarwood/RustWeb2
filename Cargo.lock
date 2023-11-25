@@ -921,9 +921,9 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustdb"
-version = "3.2.20"
+version = "3.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "347bb2851a3704085e37a94930d70d3510a4531f2a035bfde1045610bf317ed3"
+checksum = "4e10c4ca4d8098d83c3771ab751f10563bb84b1500abeda5baa37276ec7b8ed3"
 dependencies = [
  "rustc-hash",
  "serde",
@@ -944,7 +944,7 @@ dependencies = [
 
 [[package]]
 name = "rustweb2"
-version = "0.38.0"
+version = "0.40.0"
 dependencies = [
  "argon2rs",
  "bincode",
