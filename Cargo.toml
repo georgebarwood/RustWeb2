@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "0.40.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -11,7 +11,7 @@ repository = "https://github.com/georgebarwood/rustweb2"
 
 [dependencies]
 #rustdb = { path = "../RustDB" } 
-rustdb = { version = "3.2.6" }
+rustdb = { version = "4.0.0" }
 rustc-hash = "1.1.0"
 
 tokio = { version = "1.13.0", features = ["macros","rt-multi-thread"] }
