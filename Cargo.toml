@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.0.0"
+version = "1.0.2"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -19,7 +19,7 @@ mime = "0.3.16"
 serde_urlencoded = "0.7.1"
 #clap = { version = "3.2.17", features = ["derive"] }
 clap = { version = "4.0.0", features = ["derive"] }
-#mimalloc = { version = "0.1.26", default-features = false }
+mimalloc = { version = "0.1.26", default-features = false }
 
 serde = { version = "1.0.142", features = ["derive","rc"] }
 
