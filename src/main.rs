@@ -140,9 +140,10 @@ use std::{
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Memory allocator ( MiMalloc ).
-//use mimalloc::MiMalloc;
-//#[global_allocator]
-//static MEMALLOC: MiMalloc = MiMalloc;
+use mimalloc::MiMalloc;
+#[global_allocator]
+static MEMALLOC: MiMalloc = MiMalloc;
+
 use clap::Parser;
 
 /// Command line arguments.

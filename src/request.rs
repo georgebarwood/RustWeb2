@@ -25,7 +25,8 @@ pub async fn process(
     };
     let (hdrs, outp) = {
         let mut st = ServerTrans::new_with_state(ss.clone(), r.uid.clone());
-        let readonly = h.method == b"GET" || h.args.get("readonly").is_some();
+        let readonly = h.method == b"GET" && !h.args.get("save").is_some() || h.args.get("readonly").is_some();
+        
         st.x.qy.path = h.path;
         st.x.qy.params = h.args;
         st.x.qy.cookies = h.cookies;
@@ -61,10 +62,10 @@ pub async fn process(
             r.u.used[U_CPU] = st.run_time.as_micros() as u64;
             if ss.tracetime {
                 println!(
-                    "run {} time={}µs updates={}",
+                    "run {} time={}µs updates={} readonly-{}",
                     st.x.arg(0, ""),
                     st.run_time.as_micros(),
-                    st.updates
+                    st.updates, readonly
                 );
             }
             if ss.tracemem {
