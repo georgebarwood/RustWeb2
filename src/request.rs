@@ -1,5 +1,5 @@
 use crate::share::{Error, ServerTrans, SharedState, UseInfo, U_COUNT, U_CPU, U_READ, U_WRITE};
-use rustdb::{gentrans::GenQuery, Transaction};
+use rustdb::gentrans::GenQuery;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -14,6 +14,7 @@ pub async fn process(
     let mut r = Buffer::new(r, ss.clone(), ip);
 
     let h = Headers::get(&mut r).await;
+
     let h = match h {
         Ok(h) => h,
         Err(e) => {
@@ -23,10 +24,12 @@ pub async fn process(
             return Err(e)?;
         }
     };
+
     let (hdrs, outp) = {
         let mut st = ServerTrans::new_with_state(ss.clone(), r.uid.clone());
-        let readonly = h.method == b"GET" && !h.args.get("save").is_some() || h.args.get("readonly").is_some();
-        
+        let readonly =
+            h.method == b"GET" && h.args.get("save").is_none() || h.args.get("readonly").is_some();
+
         st.x.qy.path = h.path;
         st.x.qy.params = h.args;
         st.x.qy.cookies = h.cookies;
@@ -62,10 +65,12 @@ pub async fn process(
             r.u.used[U_CPU] = st.run_time.as_micros() as u64;
             if ss.tracetime {
                 println!(
-                    "run {} time={}µs updates={} readonly-{}",
-                    st.x.arg(0, ""),
+                    "run path={} args={:?} time={}µs updates={} readonly={}",
+                    st.x.qy.path,
+                    st.x.qy.params,
                     st.run_time.as_micros(),
-                    st.updates, readonly
+                    st.updates,
+                    readonly
                 );
             }
             if ss.tracemem {
@@ -287,7 +292,7 @@ fn cookie_map(s: &[u8]) -> Result<BTreeMap<String, String>, Error> {
 fn is_multipart(s: &[u8]) -> bool {
     let temp = b"multipart/form-data";
     let n = temp.len();
-    temp == &s[0..n]
+    s.len() >= n && temp == &s[0..n]
 }
 
 /// Extract name and file_name from content-disposition header.
