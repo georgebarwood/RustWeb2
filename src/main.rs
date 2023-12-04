@@ -7,13 +7,13 @@ async fn main() -> Result<(), std::io::Error> {
     let is_master = args.rep.is_empty();
 
     // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
-    let file = Box::new(SimpleFileStorage::new("rustweb.rustdb"));
-    let upd = Box::new(SimpleFileStorage::new("rustweb.upd"));
-    let stg = Box::new(AtomicFile::new(file, upd));
+    let file = SimpleFileStorage::new("rustweb.rustdb");
+    let upd = SimpleFileStorage::new("rustweb.upd");
+    let stg = AtomicFile::new(file, upd);
 
     // SharedPagedData allows for one writer and multiple readers.
     // Note that readers never have to wait, they get a "virtual" read-only copy of the database.
-    let spd = Arc::new(SharedPagedData::new(stg));
+    let spd = SharedPagedData::new(stg);
     {
         let mut s = spd.stash.lock().unwrap();
         s.mem_limit = args.mem << 20;
