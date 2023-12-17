@@ -24,6 +24,7 @@ pub fn get_bmap() -> BuiltinMap {
             DataKind::Binary,
             CompileFunc::Value(c_binunpack),
         ),
+        ("SETMEM", DataKind::Int, CompileFunc::Int(c_setmem)),
     ];
     for (name, typ, cf) in list {
         bmap.insert(name.to_string(), (typ, cf));
@@ -218,5 +219,24 @@ impl CExp<Value> for Binunpack {
         } else {
             panic!();
         }
+    }
+}
+
+/// Compile call to SETMEM.
+fn c_setmem(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(b, args, &[DataKind::Int]);
+    let to = c_int(b, &mut args[0]);
+    Box::new(SetMem { to })
+}
+
+/// Compiled call to SETMEM
+struct SetMem {
+    to: CExpPtr<i64>,
+}
+impl CExp<i64> for SetMem {
+    fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
+        let to = self.to.eval(ee, d) as usize;
+        ee.db.file.spd.stash.lock().unwrap().mem_limit = to * 1024 * 1024;
+        0
     }
 }
