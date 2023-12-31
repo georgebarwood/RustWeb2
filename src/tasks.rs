@@ -34,6 +34,7 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
         let ser = rget(state.clone(), &url).await;
         if !ser.is_empty() {
             let mut st = ServerTrans::new();
+            st.replication = true;
             st.x.qy = bincode::deserialize(&ser).unwrap();
             state.process(st).await;
             println!("Replicated database updated Transaction Id={tid}");
