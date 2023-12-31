@@ -82,7 +82,7 @@ async fn main() -> Result<(), std::io::Error> {
             let mut sm = rx.blocking_recv().unwrap();
             let sql = sm.st.x.qy.sql.clone();
             db.run(&sql, &mut sm.st.x);
-            if sm.st.log && db.changed() {
+            if sm.st.replication || ( sm.st.log && db.changed() ) {
                 if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
                     // Append serialised transaction to log.Transaction table
                     let ser = bincode::serialize(&sm.st.x.qy).unwrap();

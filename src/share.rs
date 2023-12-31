@@ -194,6 +194,7 @@ impl SharedState {
 pub struct ServerTrans {
     pub x: GenTransaction,
     pub log: bool,
+    pub replication: bool,
     pub readonly: bool,
     pub run_time: core::time::Duration,
     pub updates: usize,
@@ -205,6 +206,7 @@ impl ServerTrans {
         Self {
             x: GenTransaction::new(),
             log: true,
+            replication: false,
             readonly: false,
             run_time: Duration::from_micros(0),
             updates: 0,
