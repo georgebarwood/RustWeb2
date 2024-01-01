@@ -28,7 +28,7 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
             let apd = AccessPagedData::new_reader(state.spd.clone());
             let db = Database::new(apd, "", state.bmap.clone());
             let lt = db.table("log", "Transaction");
-            lt.id_gen.get()
+            lt.get_id_gen(&db)
         };
         let url = format!("/log-get?k={tid}");
         let ser = rget(state.clone(), &url).await;

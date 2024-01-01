@@ -82,13 +82,13 @@ async fn main() -> Result<(), std::io::Error> {
             let mut sm = rx.blocking_recv().unwrap();
             let sql = sm.st.x.qy.sql.clone();
             db.run(&sql, &mut sm.st.x);
-            if sm.st.replication || ( sm.st.log && db.changed() ) {
+            if sm.st.replication || (sm.st.log && db.changed()) {
                 if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
                     // Append serialised transaction to log.Transaction table
                     let ser = bincode::serialize(&sm.st.x.qy).unwrap();
                     let ser = Value::RcBinary(Rc::new(ser));
                     let mut row = t.row();
-                    row.id = t.alloc_id();
+                    row.id = t.alloc_id(&db);
                     row.values[0] = ser;
                     t.insert(&db, &mut row);
                 }

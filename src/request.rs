@@ -93,8 +93,6 @@ pub async fn process(
     let budget = r.u.limit[U_WRITE];
     write(&mut w, &hdrs, budget, &mut r.u.used[U_WRITE]).await?;
     write(&mut w, &outp, budget, &mut r.u.used[U_WRITE]).await?;
-    ss.spd.trim_cache(); // Not sure if this is best place to do this or not.
-
     Ok(())
 }
 

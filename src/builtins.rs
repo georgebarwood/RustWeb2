@@ -236,7 +236,7 @@ struct SetMem {
 impl CExp<i64> for SetMem {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
         let to = self.to.eval(ee, d) as usize;
-        ee.db.file.spd.stash.lock().unwrap().mem_limit = to * 1024 * 1024;
+        ee.db.apd.spd.stash.lock().unwrap().mem_limit = to * 1024 * 1024;
         0
     }
 }
