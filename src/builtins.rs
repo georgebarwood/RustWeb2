@@ -25,6 +25,7 @@ pub fn get_bmap() -> BuiltinMap {
             CompileFunc::Value(c_binunpack),
         ),
         ("SETMEM", DataKind::Int, CompileFunc::Int(c_setmem)),
+        ("DESERIALISE", DataKind::String, CompileFunc::Value(c_deserialise)),
     ];
     for (name, typ, cf) in list {
         bmap.insert(name.to_string(), (typ, cf));
@@ -240,3 +241,26 @@ impl CExp<i64> for SetMem {
         0
     }
 }
+
+use rustdb::gentrans::GenQuery;
+
+fn c_deserialise(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
+    check_types(b, args, &[DataKind::Binary]);
+    let ser = c_value(b, &mut args[0]);
+    Box::new(Deserialise { ser })
+}
+
+/// Compiled call to DESERIALISE
+struct Deserialise {
+    ser: CExpPtr<Value>,
+}
+
+impl CExp<Value> for Deserialise {
+    fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
+        let ser = self.ser.eval(ee, d).bin();
+        let qy : GenQuery = bincode::deserialize(&ser).unwrap();
+        let s = serde_json::to_string(&qy).unwrap();
+        Value::String(Rc::new(s))
+    }
+}
+
