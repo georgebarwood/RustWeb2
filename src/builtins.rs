@@ -25,7 +25,11 @@ pub fn get_bmap() -> BuiltinMap {
             CompileFunc::Value(c_binunpack),
         ),
         ("SETMEM", DataKind::Int, CompileFunc::Int(c_setmem)),
-        ("DESERIALISE", DataKind::String, CompileFunc::Value(c_deserialise)),
+        (
+            "DESERIALISE",
+            DataKind::String,
+            CompileFunc::Value(c_deserialise),
+        ),
     ];
     for (name, typ, cf) in list {
         bmap.insert(name.to_string(), (typ, cf));
@@ -258,9 +262,8 @@ struct Deserialise {
 impl CExp<Value> for Deserialise {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         let ser = self.ser.eval(ee, d).bin();
-        let qy : GenQuery = bincode::deserialize(&ser).unwrap();
+        let qy: GenQuery = bincode::deserialize(&ser).unwrap();
         let s = serde_json::to_string(&qy).unwrap();
         Value::String(Rc::new(s))
     }
 }
-

@@ -274,7 +274,9 @@ fn cookie_map(s: &[u8]) -> Result<BTreeMap<String, String>, Error> {
             i += 1;
         }
         let name = tos(&s[start..i])?;
-        i += 1;
+        if i < n {
+            i += 1;
+        }
         let start = i;
         while i < n && s[i] != b';' {
             i += 1;
