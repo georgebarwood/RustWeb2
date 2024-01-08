@@ -74,6 +74,7 @@ pub struct UseInfo {
 }
 
 impl SharedState {
+    /// Get the usage budget for specified user ( difference between limit and usage ).
     pub fn u_budget(&self, uid: String) -> UA {
         let mut m = self.dos.lock().unwrap();
         let info = m.entry(uid).or_default();
@@ -90,6 +91,7 @@ impl SharedState {
         result
     }
 
+    /// Increment usage linits for specified user.
     pub fn u_inc(&self, uid: &str, amount: UA) {
         let mut m = self.dos.lock().unwrap();
         if let Some(info) = m.get_mut(uid) {
@@ -109,9 +111,10 @@ impl SharedState {
         }
     }
 
-    pub fn u_set_limits(&self, u: String, limit: UA) -> bool {
+    /// Set the limits for specified user. Result is no limit exceeded.
+    pub fn u_set_limits(&self, uid: String, limit: UA) -> bool {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(u).or_default();
+        let info = m.entry(uid).or_default();
         info.limit = limit;
         for i in 0..4 {
             if info.used[i] >= info.limit[i] {
@@ -121,7 +124,7 @@ impl SharedState {
         true
     }
 
-    /// Deflate old usage by 10% periodically.
+    /// Deflate old usage by 10% periodically. Items with zero usage are removed.
     pub fn u_decay(&self) {
         let mut m = self.dos.lock().unwrap();
         m.retain(|_uid, info| {
@@ -130,9 +133,7 @@ impl SharedState {
                 if info.used[i] > 0 {
                     info.used[i] -= 1 + info.used[i] / 10;
                 }
-                if info.used[i] > 0 {
-                    nz = true;
-                }
+                nz = nz || info.used[i] > 0;
             }
             nz
         });

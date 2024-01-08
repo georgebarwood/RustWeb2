@@ -1,3 +1,4 @@
+/// Program entry point - construct shared state, start async tasks, process requests.
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
@@ -73,7 +74,9 @@ async fn main() -> Result<(), std::io::Error> {
         if db.is_new && is_master {
             let f = std::fs::read_to_string("admin-ScriptAll.txt");
             let init = if let Ok(f) = &f { f } else { init::INITSQL };
-            exec(&db, init);
+            let mut tr = rustdb::GenTransaction::default();
+            db.run(init, &mut tr);
+            db.save();
         }
         if !is_master {
             let _ = sync_tx.send(db.is_new);
@@ -111,12 +114,6 @@ async fn main() -> Result<(), std::io::Error> {
     }
 }
 
-fn exec(db: &rustdb::DB, sql: &str) {
-    let mut tr = rustdb::GenTransaction::default();
-    db.run(sql, &mut tr);
-    db.save();
-}
-
 /// Extra SQL builtin functions.
 mod builtins;
 /// SQL initialisation string.
@@ -140,9 +137,8 @@ use std::{
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Memory allocator ( MiMalloc ).
-use mimalloc::MiMalloc;
 #[global_allocator]
-static MEMALLOC: MiMalloc = MiMalloc;
+static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use clap::Parser;
 
