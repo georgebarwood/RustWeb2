@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.0.16"
+version = "1.0.17"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -10,8 +10,8 @@ repository = "https://github.com/georgebarwood/rustweb2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#rustdb = { path = "../RustDB" } 
-rustdb = { version = "5.0.1" }
+#rustdb = { path = "../RustDB", features = ["unsafe_opt"] } 
+rustdb = { version = "5.0.1", features = ["unsafe_opt"] }
 rustc-hash = "1.1.0"
 
 tokio = { version = "1.13.0", features = ["macros","rt-multi-thread"] }
