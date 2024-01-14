@@ -246,8 +246,7 @@ impl CExp<i64> for SetMem {
     }
 }
 
-use rustdb::gentrans::GenQuery;
-
+/// Compile call to DESERIALISE.
 fn c_deserialise(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
     check_types(b, args, &[DataKind::Binary]);
     let ser = c_value(b, &mut args[0]);
@@ -262,7 +261,7 @@ struct Deserialise {
 impl CExp<Value> for Deserialise {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         let ser = self.ser.eval(ee, d).bin();
-        let qy: GenQuery = bincode::deserialize(&ser).unwrap();
+        let qy: rustdb::gentrans::GenQuery = bincode::deserialize(&ser).unwrap();
         let s = serde_json::to_string(&qy).unwrap();
         Value::String(Rc::new(s))
     }
