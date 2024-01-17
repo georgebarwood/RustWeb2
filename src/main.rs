@@ -8,7 +8,7 @@ async fn main() -> Result<(), std::io::Error> {
     let is_master = args.rep.is_empty();
 
     // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
-    let file = SimpleFileStorage::new("rustweb.rustdb");
+    let file = MultiFileStorage::new("rustweb.rustdb");
     let upd = SimpleFileStorage::new("rustweb.upd");
     let stg = AtomicFile::new(file, upd);
 
@@ -127,7 +127,8 @@ mod tasks;
 
 use rustc_hash::FxHashMap as HashMap;
 use rustdb::{
-    AccessPagedData, AtomicFile, Database, ObjRef, SharedPagedData, SimpleFileStorage, Value,
+    AccessPagedData, AtomicFile, Database, MultiFileStorage, ObjRef, SharedPagedData,
+    SimpleFileStorage, Value,
 };
 use std::{
     rc::Rc,
