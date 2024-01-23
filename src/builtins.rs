@@ -30,6 +30,7 @@ pub fn get_bmap() -> BuiltinMap {
             DataKind::String,
             CompileFunc::Value(c_deserialise),
         ),
+        ("NOLOG", DataKind::Int, CompileFunc::Int(c_nolog)),
     ];
     for (name, typ, cf) in list {
         bmap.insert(name.to_string(), (typ, cf));
@@ -266,3 +267,27 @@ impl CExp<Value> for Deserialise {
         Value::String(Rc::new(s))
     }
 }
+
+/// Compile call to NOLOG.
+fn c_nolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(
+        b,
+        args,
+        &[],
+    );
+    Box::new(NoLog {})
+}
+
+/// Compiled call to SETDOS
+struct NoLog {}
+impl CExp<i64> for NoLog{
+    fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {
+        let mut ext = ee.tr.get_extension();
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
+            ext.no_log = true;
+        }
+        ee.tr.set_extension(ext);
+        0
+    }
+}
+

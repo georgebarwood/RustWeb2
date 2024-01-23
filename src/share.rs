@@ -194,8 +194,8 @@ impl SharedState {
 /// Transaction to be processed.
 pub struct ServerTrans {
     pub x: GenTransaction,
-    pub log: bool,
     pub replication: bool,
+    pub log: bool,
     pub readonly: bool,
     pub run_time: core::time::Duration,
     pub updates: usize,
@@ -237,6 +237,17 @@ impl ServerTrans {
         w.finish();
         self.x.rp.output = w.b.b;
     }
+
+    pub fn no_log(&mut self) -> bool
+    {
+        let mut result = false;
+        let ext = self.x.get_extension();
+        if let Some(ext) = ext.downcast_ref::<TransExt>() {
+           result = ext.no_log;
+        }         
+        self.x.set_extension(ext);
+        result
+    }
 }
 
 impl Default for ServerTrans {
@@ -265,6 +276,8 @@ pub struct TransExt {
     pub trans_wait: bool,
     /// Transform html output to pdf.
     pub to_pdf: bool,
+    /// Do not log transaction.
+    pub no_log: bool,
 }
 
 impl TransExt {
@@ -276,6 +289,7 @@ impl TransExt {
             sleep: 0,
             trans_wait: false,
             to_pdf: false,
+            no_log: false,
         })
     }
 
