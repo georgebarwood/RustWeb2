@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.0.19"
+version = "1.0.22"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ repository = "https://github.com/georgebarwood/rustweb2"
 rustdb = { version = "5.0.1" }
 rustc-hash = "1.1.0"
 
-tokio = { version = "1.13.0", features = ["macros","rt-multi-thread"] }
+tokio = { version = "1.13.0", features = ["macros","rt-multi-thread","signal"] }
 mime = "0.3.16"
 serde_urlencoded = "0.7.1"
 clap = { version = "4.0.0", features = ["derive"] }
