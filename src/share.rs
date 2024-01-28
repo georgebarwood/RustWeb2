@@ -238,13 +238,12 @@ impl ServerTrans {
         self.x.rp.output = w.b.b;
     }
 
-    pub fn no_log(&mut self) -> bool
-    {
+    pub fn no_log(&mut self) -> bool {
         let mut result = false;
         let ext = self.x.get_extension();
         if let Some(ext) = ext.downcast_ref::<TransExt>() {
-           result = ext.no_log;
-        }         
+            result = ext.no_log;
+        }
         self.x.set_extension(ext);
         result
     }

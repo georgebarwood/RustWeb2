@@ -270,17 +270,13 @@ impl CExp<Value> for Deserialise {
 
 /// Compile call to NOLOG.
 fn c_nolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
-    check_types(
-        b,
-        args,
-        &[],
-    );
+    check_types(b, args, &[]);
     Box::new(NoLog {})
 }
 
 /// Compiled call to SETDOS
 struct NoLog {}
-impl CExp<i64> for NoLog{
+impl CExp<i64> for NoLog {
     fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {
         let mut ext = ee.tr.get_extension();
         if let Some(ext) = ext.downcast_mut::<TransExt>() {
@@ -290,4 +286,3 @@ impl CExp<i64> for NoLog{
         0
     }
 }
-

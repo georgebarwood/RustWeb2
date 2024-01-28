@@ -59,27 +59,26 @@ pub async fn process(
 
         if st.x.rp.status_code == 200 {
             st.readonly = readonly;
-            // println!("qy={:?} readonly={}", st.x.qy, readonly);
             st = ss.process(st).await;
             r.uid = st.uid.clone();
             r.u.used[U_CPU] = st.run_time.as_micros() as u64;
             if ss.tracetime {
                 println!(
-                    "run path={} args={:?} time={}µs updates={} readonly={}",
-                    st.x.qy.path,
-                    st.x.qy.params,
+                    "run time={}µs updates={} readonly={} path={} args={:?}",
                     st.run_time.as_micros(),
                     st.updates,
-                    readonly
+                    readonly,
+                    st.x.qy.path,
+                    st.x.qy.params,
                 );
             }
             if ss.tracemem {
                 let s = ss.spd.stash.lock().unwrap();
                 println!(
-                    "stash limit={} used={} free={} pages={} cached={} read={} misses={}",
-                    s.mem_limit,
-                    s.total,
-                    s.mem_limit - s.total,
+                    "stash limit={}K used={}K free={}K pages={} cached={} read={} misses={}",
+                    s.mem_limit / 1024,
+                    s.total / 1024,
+                    (s.mem_limit - s.total) / 1024,
                     s.pages.len(),
                     s.cached(),
                     s.read,
