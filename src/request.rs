@@ -114,7 +114,7 @@ fn header(st: &ServerTrans) -> Vec<u8> {
 }
 
 /// Header parsing.
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct Headers {
     method: Vec<u8>,
     path: String,
