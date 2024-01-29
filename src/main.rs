@@ -114,11 +114,31 @@ fn main() {
                 }
                 _ = tokio::signal::ctrl_c() =>
                 {
+                    println!("Processing of new http requests stopped by ctrl-C signal - stopping"); 
                     break;
                 }
+                _ = term() =>
+                {
+                    println!("Processing of new http requests stopped by signal - stopping"); 
+                    break;
+                }
+
             }
         }
     });
+    println!("Server stopped");
+}
+
+#[cfg(unix)]
+async fn term()
+{
+   let _ = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap().recv().await;
+}
+
+#[cfg(windows)]
+async fn term()
+{
+   let _ = tokio::signal::windows::ctrl_c().unwrap().recv().await;
 }
 
 /// Extra SQL builtin functions.
