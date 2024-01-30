@@ -274,7 +274,7 @@ fn c_nolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     Box::new(NoLog {})
 }
 
-/// Compiled call to SETDOS
+/// Compiled call to NOLOG
 struct NoLog {}
 impl CExp<i64> for NoLog {
     fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {

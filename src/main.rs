@@ -1,19 +1,23 @@
 /// Program entry point - construct shared state, start async tasks, process requests.
 fn main() {
+    // Read program arguments.
+    let args = Args::parse();
+
+    // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
+    let file = MultiFileStorage::new("rustweb.rustdb");
+    let upd = SimpleFileStorage::new("rustweb.upd");
+    let stg = AtomicFile::new(file, upd);
+
+    // SharedPagedData allows for one writer and multiple readers.
+    // Note that readers never have to wait, they get a "virtual" read-only copy of the database.
+    let spd = SharedPagedData::new(stg);
+    let spdc = spd.clone();
+
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        let args = Args::parse();
         let listen = format!("{}:{}", args.ip, args.port);
         let is_master = args.rep.is_empty();
 
-        // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
-        let file = MultiFileStorage::new("rustweb.rustdb");
-        let upd = SimpleFileStorage::new("rustweb.upd");
-        let stg = AtomicFile::new(file, upd);
-
-        // SharedPagedData allows for one writer and multiple readers.
-        // Note that readers never have to wait, they get a "virtual" read-only copy of the database.
-        let spd = SharedPagedData::new(stg);
         {
             let mut s = spd.stash.lock().unwrap();
             s.mem_limit = args.mem << 20;
@@ -114,31 +118,34 @@ fn main() {
                 }
                 _ = tokio::signal::ctrl_c() =>
                 {
-                    println!("Processing of new http requests stopped by ctrl-C signal - stopping"); 
+                    println!("Processing of new http requests stopped by ctrl-C signal - stopping");
                     break;
                 }
                 _ = term() =>
                 {
-                    println!("Processing of new http requests stopped by signal - stopping"); 
+                    println!("Processing of new http requests stopped by signal - stopping");
                     break;
                 }
 
             }
         }
     });
+    // Make sure outstanding writes are flushed to secondary storage.
+    spdc.flush();
     println!("Server stopped");
 }
 
 #[cfg(unix)]
-async fn term()
-{
-   let _ = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).unwrap().recv().await;
+async fn term() {
+    let _ = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .unwrap()
+        .recv()
+        .await;
 }
 
 #[cfg(windows)]
-async fn term()
-{
-   let _ = tokio::signal::windows::ctrl_c().unwrap().recv().await;
+async fn term() {
+    let _ = tokio::signal::windows::ctrl_c().unwrap().recv().await;
 }
 
 /// Extra SQL builtin functions.
