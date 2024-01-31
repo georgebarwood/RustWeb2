@@ -86,6 +86,16 @@ This can be overriden by adding a query parameter "save".
 
 POST requests are assumed to be read-write, this can be overridden by adding a query parameter "readonly".
 
+Optional Features
+=================
+mt-tokio enables the multi-threaded tokio runtime.
+
+unsafe-optim enables unsafe optimisations (should not cause any problem, but programmers are fallible).
+
+For example this will install rustweb2 with multi-threaded tokio runtime and unsafe optimisations enabled.
+
+cargo install rustweb2 -F mt-tokio,unsafe-optim
+
 Links
 =====
 
