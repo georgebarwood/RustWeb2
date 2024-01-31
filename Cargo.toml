@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.0.30"
+version = "1.0.31"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -10,16 +10,15 @@ repository = "https://github.com/georgebarwood/rustweb2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["required"]
-required = ["dep:rustdb", "dep:tokio"]
-mt-tokio = ["tokio?/rt-multi-thread"]
-unsafe-optim = ["rustdb?/unsafe-optim"]
+default = ["mt-tokio"]
+mt-tokio = ["tokio/rt-multi-thread"]
+unsafe-optim = ["rustdb/unsafe-optim"]
 
 [dependencies]
-tokio = { version = "1.13.0", features = ["macros","signal"], optional=true }
-rustdb = { version = "5.2.0", optional=true }
-
+tokio = { version = "1.13.0", features = ["macros","signal"]}
+rustdb = { version = "5.2.0" }
 #rustdb = { path = "../RustDB", optional=true }
+
 rustc-hash = "1.1.0"
 mime = "0.3.16"
 serde_urlencoded = "0.7.1"
