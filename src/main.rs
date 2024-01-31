@@ -13,7 +13,9 @@ fn main() {
     let spd = SharedPagedData::new(stg);
     let spdc = spd.clone();
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    // let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Builder::new_current_thread().enable_io().enable_time().build().unwrap();
+
     rt.block_on(async {
         let listen = format!("{}:{}", args.ip, args.port);
         let is_master = args.rep.is_empty();
