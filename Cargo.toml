@@ -9,14 +9,18 @@ repository = "https://github.com/georgebarwood/rustweb2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["required"]
+required = ["dep:rustdb", "dep:tokio"]
+mt-tokio = ["tokio?/rt-multi-thread"]
+unsafe-optim = ["rustdb?/unsafe-optim"]
+
 [dependencies]
-#rustdb = { path = "../RustDB", optional=true } 
-rustdb = { version = "5.2.0", optional=true }
-rustc-hash = "1.1.0"
-
-#tokio = { version = "1.13.0", features = ["macros","rt-multi-thread","signal"] }
 tokio = { version = "1.13.0", features = ["macros","signal"], optional=true }
+rustdb = { version = "5.2.0", optional=true }
 
+#rustdb = { path = "../RustDB", optional=true }
+rustc-hash = "1.1.0"
 mime = "0.3.16"
 serde_urlencoded = "0.7.1"
 clap = { version = "4.0.0", features = ["derive"] }
@@ -34,10 +38,5 @@ pdf-min = "0.1.2"
 
 #console-subscriber = { path = "../console-main/console-subscriber" }
 
-[features]
-default = ["st-tokio","reqd"]
-mt-tokio = ["dep:tokio", "tokio?/rt-multi-thread"]
-st-tokio = ["dep:tokio", "tokio?/rt"]
-reqd = ["dep:rustdb"]
-unsafe-optim = ["dep:rustdb", "rustdb?/unsafe-optim"]
+
 

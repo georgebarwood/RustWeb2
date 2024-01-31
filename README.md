@@ -92,7 +92,7 @@ mt-tokio enables the multi-threaded tokio runtime.
 
 unsafe-optim enables unsafe optimisations (should not cause any problem, but programmers are fallible).
 
-For example this will install rustweb2 with multi-threaded tokio runtime and unsafe optimisations enabled.
+For example this will install rustweb2 with multi-threaded tokio runtime and unsafe optimisations enabled:
 
 cargo install rustweb2 -F mt-tokio,unsafe-optim
 
