@@ -17,7 +17,7 @@ unsafe-optim = ["rustdb/unsafe-optim"]
 [dependencies]
 tokio = { version = "1.13.0", features = ["macros","signal"]}
 rustdb = { version = "5.2.0" }
-#rustdb = { path = "../RustDB", optional=true }
+#rustdb = { path = "../RustDB" }
 
 rustc-hash = "1.1.0"
 mime = "0.3.16"
