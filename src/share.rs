@@ -182,6 +182,18 @@ impl SharedState {
                    _ = tokio::time::sleep(Duration::from_secs(600)) => {}
                 }
             }
+            if ext.trans_flush {
+                let mut done = u64::MAX;
+                loop {
+                    let ok;
+                    (ok, done) = self.spd.complete(done);
+                    println!("trans_flush..ok={} done ={}", ok, done);
+                    if ok {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
             if ext.to_pdf {
                 st.convert_to_pdf();
             }
@@ -273,6 +285,8 @@ pub struct TransExt {
     pub sleep: u64,
     /// Signals wait for new transaction to be logged
     pub trans_wait: bool,
+    /// Signals wait for transactions to be flushed
+    pub trans_flush: bool,
     /// Transform html output to pdf.
     pub to_pdf: bool,
     /// Do not log transaction.
@@ -287,6 +301,7 @@ impl TransExt {
             tx_email: false,
             sleep: 0,
             trans_wait: false,
+            trans_flush: false,
             to_pdf: false,
             no_log: false,
         })

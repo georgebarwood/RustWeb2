@@ -17,6 +17,7 @@ pub fn get_bmap() -> BuiltinMap {
         ("SLEEP", DataKind::Int, CompileFunc::Int(c_sleep)),
         ("SETDOS", DataKind::Int, CompileFunc::Int(c_setdos)),
         ("TRANSWAIT", DataKind::Int, CompileFunc::Int(c_trans_wait)),
+        ("TRANSFLUSH", DataKind::Int, CompileFunc::Int(c_trans_flush)),
         ("TOPDF", DataKind::Int, CompileFunc::Int(c_topdf)),
         ("BINPACK", DataKind::Binary, CompileFunc::Value(c_binpack)),
         (
@@ -162,6 +163,25 @@ impl CExp<i64> for TransWait {
         let mut ext = ee.tr.get_extension();
         if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.trans_wait = true;
+        }
+        ee.tr.set_extension(ext);
+        0
+    }
+}
+
+/// Compile call to TRANSFLUSH.
+fn c_trans_flush(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(b, args, &[]);
+    Box::new(TransFlush {})
+}
+
+/// Compiled call to TRANSFLUSH
+struct TransFlush {}
+impl CExp<i64> for TransFlush {
+    fn eval(&self, ee: &mut EvalEnv, _d: &[u8]) -> i64 {
+        let mut ext = ee.tr.get_extension();
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
+            ext.trans_flush = true;
         }
         ee.tr.set_extension(ext);
         0
