@@ -137,7 +137,7 @@ fn main() {
         }
     });
     // Make sure outstanding writes are flushed to secondary storage.
-    spdc.flush();
+    spdc.wait_complete();
     println!("Server stopped");
 }
 

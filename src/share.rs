@@ -183,16 +183,11 @@ impl SharedState {
                 }
             }
             if ext.trans_flush {
-                let mut done = u64::MAX;
-                loop {
-                    let ok;
-                    (ok, done) = self.spd.complete(done);
-                    println!("trans_flush..ok={} done ={}", ok, done);
-                    if ok {
-                        break;
-                    }
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                }
+                let spd = self.spd.clone();
+                let _ = tokio::task::spawn_blocking(move || {
+                    spd.wait_complete();
+                })
+                .await;
             }
             if ext.to_pdf {
                 st.convert_to_pdf();
