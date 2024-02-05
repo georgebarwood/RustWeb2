@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.0.35"
+version = "1.0.38"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -13,6 +13,7 @@ repository = "https://github.com/georgebarwood/rustweb2"
 default = ["mt-tokio"]
 mt-tokio = ["tokio/rt-multi-thread"]
 unsafe-optim = ["rustdb/unsafe-optim"]
+log = ["rustdb/log"]
 
 [dependencies]
 tokio = { version = "1.13.0", features = ["macros","signal"]}
