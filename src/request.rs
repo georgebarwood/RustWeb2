@@ -78,7 +78,7 @@ pub async fn process(
                     "stash limit={}K used={}K free={}K pages={} cached={} read={} misses={}",
                     s.mem_limit / 1024,
                     s.total / 1024,
-                    (s.mem_limit - s.total) / 1024,
+                    (s.mem_limit as i64 - s.total) / 1024,
                     s.pages.len(),
                     s.cached(),
                     s.read,
