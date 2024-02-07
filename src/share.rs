@@ -12,8 +12,8 @@ pub struct SharedState {
     /// Map of builtin SQL functions for Database.
     pub bmap: Arc<rustdb::BuiltinMap>,
 
-    /// Sender channel for sending queries to server task.
-    pub tx: mpsc::Sender<ServerMessage>,
+    /// Sender channel for sending queries to update task.
+    pub update_tx: mpsc::Sender<UpdateMessage>,
 
     /// For notifying email loop that emails are in Queue ready to be sent.
     pub email_tx: mpsc::UnboundedSender<()>,
@@ -37,7 +37,7 @@ pub struct SharedState {
     pub dos_limit: UA,
 
     /// Information for mitigating DoS attacks
-    pub dos: Arc<Mutex<HashMap<String, UseInfo>>>,
+    pub dos: Mutex<HashMap<String, UseInfo>>,
 
     /// Trace time to process each request.
     pub tracetime: bool,
@@ -140,34 +140,34 @@ impl SharedState {
     }
 
     /// Process a server transaction.
-    pub async fn process(&self, mut st: ServerTrans) -> ServerTrans {
+    pub async fn process(&self, mut trans: Trans) -> Trans {
         let start = std::time::SystemTime::now();
         let mut wait_rx = self.wait_tx.subscribe();
-        let mut st = if st.readonly {
+        let mut trans = if trans.readonly {
             // Readonly request, use read-only copy of database.
             let spd = self.spd.clone();
             let bmap = self.bmap.clone();
             let task = tokio::task::spawn_blocking(move || {
                 let apd = rustdb::AccessPagedData::new_reader(spd);
                 let db = rustdb::Database::new(apd, "", bmap);
-                let sql = st.x.qy.sql.clone();
-                db.run(&sql, &mut st.x);
-                st
+                let sql = trans.x.qy.sql.clone();
+                db.run(&sql, &mut trans.x);
+                trans
             });
             task.await.unwrap()
         } else {
-            let (reply, rx) = oneshot::channel::<ServerTrans>();
-            let _ = self.tx.send(ServerMessage { st, reply }).await;
+            let (reply, rx) = oneshot::channel::<Trans>();
+            let _ = self.update_tx.send(UpdateMessage { trans, reply }).await;
             rx.await.unwrap()
         };
-        if st.updates > 0 {
+        if trans.updates > 0 {
             let _ = self.wait_tx.send(());
         }
-        st.run_time = start.elapsed().unwrap();
+        trans.run_time = start.elapsed().unwrap();
 
-        let ext = st.x.get_extension();
+        let ext = trans.x.get_extension();
         if let Some(ext) = ext.downcast_ref::<TransExt>() {
-            st.uid = ext.uid.clone();
+            trans.uid = ext.uid.clone();
             if self.is_master {
                 if ext.sleep > 0 {
                     let _ = self.sleep_tx.send(ext.sleep);
@@ -190,16 +190,16 @@ impl SharedState {
                 .await;
             }
             if ext.to_pdf {
-                st.convert_to_pdf();
+                trans.convert_to_pdf();
             }
         }
-        st.x.set_extension(ext);
-        st
+        trans.x.set_extension(ext);
+        trans
     }
 }
 
 /// Transaction to be processed.
-pub struct ServerTrans {
+pub struct Trans {
     pub x: GenTransaction,
     pub replication: bool,
     pub log: bool,
@@ -209,7 +209,7 @@ pub struct ServerTrans {
     pub uid: String,
 }
 
-impl ServerTrans {
+impl Trans {
     fn make() -> Self {
         Self {
             x: GenTransaction::new(),
@@ -256,16 +256,16 @@ impl ServerTrans {
     }
 }
 
-impl Default for ServerTrans {
+impl Default for Trans {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Message to server task, includes oneshot Sender for reply.
-pub struct ServerMessage {
-    pub st: ServerTrans,
-    pub reply: oneshot::Sender<ServerTrans>,
+/// Message to update task, includes oneshot Sender for reply.
+pub struct UpdateMessage {
+    pub trans: Trans,
+    pub reply: oneshot::Sender<Trans>,
 }
 
 /// Extra transaction data.

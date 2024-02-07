@@ -32,7 +32,7 @@ fn main() {
         let bmap = Arc::new(builtins::get_bmap());
 
         // Construct tokio task communication channels.
-        let (tx, mut rx) = mpsc::channel::<share::ServerMessage>(1);
+        let (update_tx, mut update_rx) = mpsc::channel::<share::UpdateMessage>(1);
         let (email_tx, email_rx) = mpsc::unbounded_channel::<()>();
         let (sleep_tx, sleep_rx) = mpsc::unbounded_channel::<u64>();
         let (sync_tx, sync_rx) = oneshot::channel::<bool>();
@@ -42,7 +42,7 @@ fn main() {
         let ss = Arc::new(share::SharedState {
             spd: spd.clone(),
             bmap: bmap.clone(),
-            tx,
+            update_tx,
             email_tx,
             sleep_tx,
             wait_tx,
@@ -50,7 +50,7 @@ fn main() {
             replicate_source: args.rep,
             replicate_credentials: args.login,
             dos_limit: [args.dos_count, args.dos_read, args.dos_cpu, args.dos_write],
-            dos: Arc::new(Mutex::new(HashMap::default())),
+            dos: Mutex::new(HashMap::default()),
             tracetime: args.tracetime,
             tracedos: args.tracedos,
             tracemem: args.tracemem,
@@ -89,13 +89,13 @@ fn main() {
             if !is_master {
                 let _ = sync_tx.send(db.is_new);
             }
-            while let Some(mut sm) = rx.blocking_recv() {
-                let sql = sm.st.x.qy.sql.clone();
-                db.run(&sql, &mut sm.st.x);
-                if !sm.st.no_log() && (sm.st.replication || (sm.st.log && db.changed())) {
+            while let Some(mut sm) = update_rx.blocking_recv() {
+                let sql = sm.trans.x.qy.sql.clone();
+                db.run(&sql, &mut sm.trans.x);
+                if !sm.trans.no_log() && (sm.trans.replication || (sm.trans.log && db.changed())) {
                     if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
                         // Append serialised transaction to log.Transaction table
-                        let ser = bincode::serialize(&sm.st.x.qy).unwrap();
+                        let ser = bincode::serialize(&sm.trans.x.qy).unwrap();
                         let ser = Value::RcBinary(Rc::new(ser));
                         let mut row = t.row();
                         row.id = t.alloc_id(&db);
@@ -103,8 +103,8 @@ fn main() {
                         t.insert(&db, &mut row);
                     }
                 }
-                sm.st.updates = db.save();
-                let _x = sm.reply.send(sm.st);
+                sm.trans.updates = db.save();
+                let _x = sm.reply.send(sm.trans);
             }
         });
 

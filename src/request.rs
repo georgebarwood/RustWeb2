@@ -1,4 +1,4 @@
-use crate::share::{Error, ServerTrans, SharedState, UseInfo, U_COUNT, U_CPU, U_READ, U_WRITE};
+use crate::share::{Error, SharedState, Trans, UseInfo, U_COUNT, U_CPU, U_READ, U_WRITE};
 use rustdb::gentrans::GenQuery;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -26,50 +26,50 @@ pub async fn process(
     };
 
     let (hdrs, outp) = {
-        let mut st = ServerTrans::new_with_state(ss.clone(), r.uid.clone());
+        let mut t = Trans::new_with_state(ss.clone(), r.uid.clone());
         let readonly =
             h.method == b"GET" && h.args.get("save").is_none() || h.args.get("readonly").is_some();
 
-        st.x.qy.path = h.path;
-        st.x.qy.params = h.args;
-        st.x.qy.cookies = h.cookies;
+        t.x.qy.path = h.path;
+        t.x.qy.params = h.args;
+        t.x.qy.cookies = h.cookies;
         let (ct, clen) = (&h.content_type, h.content_length);
 
         // Set limits based on login info etc.
-        st.readonly = true;
-        let save = st.x.qy.sql.clone();
-        st.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
-        st = ss.process(st).await;
-        st.x.qy.sql = save;
-        r.u.limit = ss.u_budget(st.uid.clone());
-        st.readonly = false;
+        t.readonly = true;
+        let save = t.x.qy.sql.clone();
+        t.x.qy.sql = Arc::new("EXEC web.SetUser()".to_string());
+        t = ss.process(t).await;
+        t.x.qy.sql = save;
+        r.u.limit = ss.u_budget(t.uid.clone());
+        t.readonly = false;
 
         if ct.is_empty() {
             // No body.
         } else if ct == b"application/x-www-form-urlencoded" {
             let clen: usize = clen.parse()?;
             let bytes = r.read(clen).await?;
-            st.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+            t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
         } else if is_multipart(ct) {
-            get_multipart(&mut r, &mut st.x.qy).await?;
+            get_multipart(&mut r, &mut t.x.qy).await?;
         } else {
-            st.x.rp.status_code = 501;
+            t.x.rp.status_code = 501;
         }
         r.read_complete();
 
-        if st.x.rp.status_code == 200 {
-            st.readonly = readonly;
-            st = ss.process(st).await;
-            r.uid = st.uid.clone();
-            r.u.used[U_CPU] = st.run_time.as_micros() as u64;
+        if t.x.rp.status_code == 200 {
+            t.readonly = readonly;
+            t = ss.process(t).await;
+            r.uid = t.uid.clone();
+            r.u.used[U_CPU] = t.run_time.as_micros() as u64;
             if ss.tracetime {
                 println!(
                     "run time={}µs updates={} readonly={} path={} args={:?}",
-                    st.run_time.as_micros(),
-                    st.updates,
+                    t.run_time.as_micros(),
+                    t.updates,
                     readonly,
-                    st.x.qy.path,
-                    st.x.qy.params,
+                    t.x.qy.path,
+                    t.x.qy.params,
                 );
             }
             if ss.tracemem {
@@ -86,7 +86,7 @@ pub async fn process(
                 );
             }
         }
-        (header(&st), st.x.rp.output)
+        (header(&t), t.x.rp.output)
     };
 
     let budget = r.u.limit[U_WRITE];
@@ -96,18 +96,18 @@ pub async fn process(
 }
 
 /// Get response header.
-fn header(st: &ServerTrans) -> Vec<u8> {
+fn header(t: &Trans) -> Vec<u8> {
     let mut h = Vec::with_capacity(4096);
-    let status_line = format!("HTTP/1.1 {}\r\n", st.x.rp.status_code);
+    let status_line = format!("HTTP/1.1 {}\r\n", t.x.rp.status_code);
     h.extend_from_slice(status_line.as_bytes());
-    for (name, value) in &st.x.rp.headers {
+    for (name, value) in &t.x.rp.headers {
         h.extend_from_slice(name.as_bytes());
         h.push(b':');
         h.extend_from_slice(value.as_bytes());
         h.push(13);
         h.push(10);
     }
-    let clen = st.x.rp.output.len();
+    let clen = t.x.rp.output.len();
     let x = format!("Content-Length: {clen}\r\n\r\n");
     h.extend_from_slice(x.as_bytes());
     h

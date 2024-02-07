@@ -1,4 +1,4 @@
-use crate::share::{ServerTrans, SharedState};
+use crate::share::{SharedState, Trans};
 use rustdb::{AccessPagedData, Database};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
@@ -17,7 +17,7 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
     if db_is_new {
         let sql = rget(state.clone(), "/log-getall").await;
         let sql = std::str::from_utf8(&sql).unwrap().to_string();
-        let mut st = ServerTrans::new();
+        let mut st = Trans::new();
         st.log = false;
         st.x.qy.sql = Arc::new(sql);
         st = state.process(st).await;
@@ -33,7 +33,7 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
         let url = format!("/log-get?k={tid}");
         let ser = rget(state.clone(), &url).await;
         if !ser.is_empty() {
-            let mut st = ServerTrans::new();
+            let mut st = Trans::new();
             st.replication = true;
             st.x.qy = bincode::deserialize(&ser).unwrap();
             state.process(st).await;
@@ -118,7 +118,7 @@ pub async fn sleep_loop(mut rx: mpsc::UnboundedReceiver<u64>, state: Arc<SharedS
             {
               if state.is_master
               {
-                let mut st = ServerTrans::new();
+                let mut st = Trans::new();
                 st.x.qy.sql = Arc::new("EXEC timed.Run()".to_string());
                 state.process(st).await;
               }
@@ -259,14 +259,14 @@ fn send_email(
 
 /// Update the database to reflect an email was sent.
 async fn email_sent(state: &SharedState, msg: u64) {
-    let mut st = ServerTrans::new();
+    let mut st = Trans::new();
     st.x.qy.sql = Arc::new(format!("EXEC email.Sent({})", msg));
     state.process(st).await;
 }
 
 /// Update the database to reflect an error occurred sending an email.
 async fn email_error(state: &SharedState, msg: u64, retry: i8, err: String) {
-    let mut st = ServerTrans::new();
+    let mut st = Trans::new();
     let src = format!("EXEC email.LogSendError({},{},'{}')", msg, retry, err);
     st.x.qy.sql = Arc::new(src);
     state.process(st).await;
