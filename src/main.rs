@@ -1,17 +1,79 @@
+use rustc_hash::FxHashMap as HashMap;
+use rustdb::{
+    AccessPagedData, AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
+    SharedPagedData, SimpleFileStorage, Value,
+};
+
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
+use tokio::sync::{broadcast, mpsc, oneshot};
+
 /// Program entry point - construct shared state, start async tasks, process requests.
 fn main() {
+    main_inner();
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    println!("Server stopped");
+}
+
+fn main_inner() {
     // Read program arguments.
     let args = Args::parse();
+    let listen = format!("{}:{}", args.ip, args.port);
+    let is_master = args.rep.is_empty();
+
+    let mut limits = Limits::default();
+    limits.blk_cap = args.blk_cap;
+    limits.page_sizes = args.page_sizes;
+    limits.max_div = args.max_div;
+    limits.map_lim = args.map_lim;
+    limits.rbuf_mem = args.rbuf_mem;
+    limits.swbuf = args.swbuf;
+    limits.uwbuf = args.uwbuf;
 
     // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
     let file = MultiFileStorage::new("rustweb.rustdb");
     let upd = SimpleFileStorage::new("rustweb.upd");
-    let stg = AtomicFile::new(file, upd);
+    let stg = AtomicFile::new_with_limits(file, upd, &limits);
+    let ps = BlockPageStg::new(stg, &limits);
 
     // SharedPagedData allows for one writer and multiple readers.
     // Note that readers never have to wait, they get a "virtual" read-only copy of the database.
-    let spd = SharedPagedData::new(stg);
+    let spd = SharedPagedData::new_from_ps(ps);
     let spdc = spd.clone();
+
+    {
+        let mut s = spd.stash.lock().unwrap();
+        s.mem_limit = args.mem << 20;
+    }
+
+    let bmap = Arc::new(builtins::get_bmap());
+
+    // Construct tokio task communication channels.
+    let (update_tx, mut update_rx) = mpsc::channel::<share::UpdateMessage>(1);
+    let (email_tx, email_rx) = mpsc::unbounded_channel::<()>();
+    let (sleep_tx, sleep_rx) = mpsc::unbounded_channel::<u64>();
+    let (sync_tx, sync_rx) = oneshot::channel::<bool>();
+    let (wait_tx, _wait_rx) = broadcast::channel::<()>(16);
+
+    // Construct shared state.
+    let ss = Arc::new(share::SharedState {
+        spd: spd.clone(),
+        bmap: bmap.clone(),
+        update_tx,
+        email_tx,
+        sleep_tx,
+        wait_tx,
+        is_master,
+        replicate_source: args.rep,
+        replicate_credentials: args.login,
+        dos_limit: [args.dos_count, args.dos_read, args.dos_cpu, args.dos_write],
+        dos: Mutex::new(HashMap::default()),
+        tracetime: args.tracetime,
+        tracedos: args.tracedos,
+        tracemem: args.tracemem,
+    });
 
     // let rt = tokio::runtime::Runtime::new().unwrap();
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -21,41 +83,6 @@ fn main() {
         .unwrap();
 
     rt.block_on(async {
-        let listen = format!("{}:{}", args.ip, args.port);
-        let is_master = args.rep.is_empty();
-
-        {
-            let mut s = spd.stash.lock().unwrap();
-            s.mem_limit = args.mem << 20;
-        }
-
-        let bmap = Arc::new(builtins::get_bmap());
-
-        // Construct tokio task communication channels.
-        let (update_tx, mut update_rx) = mpsc::channel::<share::UpdateMessage>(1);
-        let (email_tx, email_rx) = mpsc::unbounded_channel::<()>();
-        let (sleep_tx, sleep_rx) = mpsc::unbounded_channel::<u64>();
-        let (sync_tx, sync_rx) = oneshot::channel::<bool>();
-        let (wait_tx, _wait_rx) = broadcast::channel::<()>(16);
-
-        // Construct shared state.
-        let ss = Arc::new(share::SharedState {
-            spd: spd.clone(),
-            bmap: bmap.clone(),
-            update_tx,
-            email_tx,
-            sleep_tx,
-            wait_tx,
-            is_master,
-            replicate_source: args.rep,
-            replicate_credentials: args.login,
-            dos_limit: [args.dos_count, args.dos_read, args.dos_cpu, args.dos_write],
-            dos: Mutex::new(HashMap::default()),
-            tracetime: args.tracetime,
-            tracedos: args.tracedos,
-            tracemem: args.tracemem,
-        });
-
         if is_master {
             // Start the task that sends emails
             let ssc = ss.clone();
@@ -138,7 +165,6 @@ fn main() {
     });
     // Make sure outstanding writes are flushed to secondary storage.
     spdc.wait_complete();
-    println!("Server stopped");
 }
 
 #[cfg(unix)]
@@ -164,18 +190,6 @@ mod request;
 mod share;
 /// Tasks for email, sync etc.
 mod tasks;
-
-use rustc_hash::FxHashMap as HashMap;
-use rustdb::{
-    AccessPagedData, AtomicFile, Database, MultiFileStorage, ObjRef, SharedPagedData,
-    SimpleFileStorage, Value,
-};
-
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
-use tokio::sync::{broadcast, mpsc, oneshot};
 
 /// Memory allocator ( MiMalloc ).
 #[global_allocator]
@@ -234,4 +248,32 @@ struct Args {
     /// Trace DoS
     #[arg(long, value_parser, default_value_t = false)]
     tracedos: bool,
+
+    /// Block Capacity
+    #[arg(long, value_parser, default_value_t = 27720*5)]
+    blk_cap: u64,
+
+    /// Number of different page sizes
+    #[arg(long, value_parser, default_value_t = 7)]
+    page_sizes: usize,
+
+    /// Maximum page size division
+    #[arg(long, value_parser, default_value_t = 12)]
+    max_div: usize,
+
+    /// Limit on size of commit write map.
+    #[arg(long, value_parser, default_value_t = 5000)]
+    map_lim: usize,
+
+    /// Memory for buffering small reads.
+    #[arg(long, value_parser, default_value_t = 0x200000)]
+    rbuf_mem: usize,
+
+    /// Memory for buffering writes to main storage.
+    #[arg(long, value_parser, default_value_t = 0x100000)]
+    swbuf: usize,
+
+    /// Memory for buffering writes to temporary storage
+    #[arg(long, value_parser, default_value_t = 0x100000)]
+    uwbuf: usize,
 }
