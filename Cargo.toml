@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.0.42"
+version = "1.0.45"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -17,8 +17,8 @@ log = ["rustdb/log"]
 
 [dependencies]
 tokio = { version = "1.13.0", features = ["macros","signal"]}
-rustdb = { version = "5.2.0", features = ["serde"] }
-#rustdb = { path = "../RustDB", features = ["serde"] }
+#rustdb = { version = "5.2.0", features = ["serde"] }
+rustdb = { path = "../RustDB", features = ["serde"] }
 
 rustc-hash = "1.1.0"
 mime = "0.3.16"
