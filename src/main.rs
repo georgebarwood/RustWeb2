@@ -237,15 +237,15 @@ struct Args {
     #[arg(long, value_parser, default_value = "")]
     login: String,
 
-    /// Trace query time
+    /// Trace query time.
     #[arg(long, value_parser, default_value_t = false)]
     tracetime: bool,
 
-    /// Trace memory trimming
+    /// Trace memory trimming.
     #[arg(long, value_parser, default_value_t = false)]
     tracemem: bool,
 
-    /// Trace DoS
+    /// Trace Denial of Service information
     #[arg(long, value_parser, default_value_t = false)]
     tracedos: bool,
 
@@ -253,11 +253,11 @@ struct Args {
     #[arg(long, value_parser, default_value_t = 27720*5)]
     blk_cap: u64,
 
-    /// Number of different page sizes
+    /// Number of different page sizes - max page size must be < 64kb
     #[arg(long, value_parser, default_value_t = 7)]
     page_sizes: usize,
 
-    /// Maximum page size division
+    /// Maximum page size division - min page size must be > 1kb
     #[arg(long, value_parser, default_value_t = 12)]
     max_div: usize,
 
