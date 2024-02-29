@@ -1,4 +1,5 @@
-pub const INITSQL : &str = "
+pub const INITSQL : &str = r#"
+
 CREATE FN [sys].[ClearTable](t int) AS 
 BEGIN 
   EXECUTE( 'DELETE FROM ' | sys.TableName(t) | ' WHERE true' )
@@ -242,7 +243,7 @@ INSERT INTO ' | sys.TableName(t) | sys.ColNames(t) | ' VALUES
 END
 GO
 
-CREATE FN [sys].[ScriptSchema]( s int, mode int ) AS
+CREATE FN [sys].[ScriptSchema]( s int, mode int, option int ) AS
 BEGIN
   DECLARE sname string SET sname = sys.SchemaName(s)
 
@@ -251,7 +252,6 @@ BEGIN
   IF sname != 'sys'
   BEGIN
     SELECT '
---############################################
 CREATE SCHEMA ' | sys.QuoteName( sname ) | '
 GO
 '
@@ -273,7 +273,7 @@ GO
 
   /******* Script Data *******/
 
-  IF sname != 'sys'
+  IF sname != 'sys' AND option = 0
   BEGIN
     FOR t = Id FROM sys.Table WHERE Schema = s ORDER BY Name
       EXEC sys.ScriptData(t,mode)
@@ -346,7 +346,6 @@ BEGIN
 END
 GO
 
---############################################
 CREATE SCHEMA [date]
 GO
 
@@ -465,21 +464,24 @@ BEGIN
     ELSE 0
   END  
   IF month = 0 THROW 'Unknown month parsing date ' | web.Attr(ms)
+  DECLARE c string
   DECLARE dix int -- Index of space beforee day string
   SET dix = 4
   WHILE true
   BEGIN
     IF dix > LEN(s) BREAK
-    IF SUBSTRING( s, dix, 1 ) = ' ' BREAK
-    SET dix = dix + 1
+    SET c = SUBSTRING( s, dix, 1 )
+    IF  c = ' ' BREAK
+    SET dix += LEN(c)
   END
   DECLARE yix int -- Index of space before year string
   SET yix = dix+1
   WHILE true
   BEGIN
     IF yix > LEN(s) BREAK
-    IF SUBSTRING( s, yix, 1 ) = ' ' BREAK
-    SET yix = yix + 1
+    SET c = SUBSTRING( s, yix, 1 )
+    IF  c = ' ' BREAK
+    SET yix += LEN(c)
   END
 
   DECLARE hix int -- Index of space before hour string
@@ -487,8 +489,9 @@ BEGIN
   WHILE true
   BEGIN
     IF hix > LEN(s) BREAK
-    IF SUBSTRING( s, hix, 1 ) = ' ' BREAK
-    SET hix = hix + 1
+    SET c = SUBSTRING( s, hix, 1 )
+    IF  c = ' ' BREAK
+    SET hix += LEN(c)
   END
 
   DECLARE mix int -- Index of colon before hour string
@@ -496,8 +499,9 @@ BEGIN
   WHILE true
   BEGIN
     IF mix > LEN(s) BREAK
-    IF SUBSTRING( s, mix, 1 ) = ':' BREAK
-    SET mix = mix + 1
+    SET c = SUBSTRING( s, mix, 1 )
+    IF  c = ':' BREAK
+    SET mix += LEN(c)
   END
 
   DECLARE six int -- Index of colon before seconds string
@@ -505,8 +509,9 @@ BEGIN
   WHILE true
   BEGIN
     IF six > LEN(s) BREAK
-    IF SUBSTRING( s, six, 1 ) = ':' BREAK
-    SET six = six + 1
+    SET c = SUBSTRING( s, six, 1 )
+    IF  c = ':' BREAK
+    SET six += LEN(c)
   END
  
   SET day = PARSEINT( SUBSTRING( s, dix+1, yix - dix - 1) )
@@ -517,7 +522,7 @@ BEGIN
   SET min = PARSEINT( SUBSTRING( s, mix + 1, six - mix - 1 ) )
   IF min > 59 THROW 'Minutes must be 0..59 parsing time ' | web.Attr(''|min)
   SET sec = PARSEINT( SUBSTRING( s, six + 1, LEN(s) ) )
-  IF sec > 59 THROW 'Secondss must be 0..59 parsing time ' | web.Attr(''|sec)
+  IF sec > 59 THROW 'Seconds must be 0..59 parsing time ' | web.Attr(''|sec)
   
 
   SET result = date.YearMonthDayToDays( date.YearMonthDay( year, month, day ) )
@@ -549,21 +554,24 @@ BEGIN
     ELSE -1
   END  
   IF month < 0 THROW 'Unknown month parsing date ' | web.Attr(ms)
+  DECLARE c string
   DECLARE six int -- Index of first space
   SET six = 4
   WHILE true
   BEGIN
     IF six > LEN(s) BREAK
-    IF SUBSTRING( s, six, 1 ) = ' ' BREAK
-    SET six = six + 1
+    SET c = SUBSTRING( s, six, 1 )
+    IF  c = ' ' BREAK
+    SET six += LEN(c)
   END
   DECLARE ssix int
   SET ssix = six+1
   WHILE true
   BEGIN
     IF ssix > LEN(s) BREAK
-    IF SUBSTRING( s, ssix, 1 ) = ' ' BREAK
-    SET ssix = ssix + 1
+    SET c = SUBSTRING( s, ssix, 1 )
+    IF  c = ' ' BREAK
+    SET ssix += LEN(c)
   END
  
   DECLARE day int, year int
@@ -653,7 +661,7 @@ GO
 CREATE FN [date].[YearDayToDays]( yd int ) RETURNS int AS
 BEGIN
   -- Given a date in Year/Day representation stored as y * 512 + d where 1 <= d <= 366 ( so d is day in year )
-  -- returns the number of days since \"day zero\" (1 Jan 0000)
+  -- returns the number of days since "day zero" (1 Jan 0000)
   -- using the Gregorian calendar where days divisible by 4 are leap years, except if divisible by 100, except if divisible by 400.
   DECLARE y int, d int, cycle int
   -- Extract y and d from yd.
@@ -759,7 +767,6 @@ BEGIN
 END
 GO
 
---############################################
 CREATE SCHEMA [web]
 GO
 
@@ -772,8 +779,8 @@ GO
 CREATE FN [web].[Attr]( s string ) RETURNS string AS
 BEGIN
   SET s = REPLACE( s, '&', '&amp;' )
-  SET s = REPLACE( s, '\"', '&quot;' )
-  RETURN '\"' | s | '\"'
+  SET s = REPLACE( s, '"', '&quot;' )
+  RETURN '"' | s | '"'
 END
 GO
 
@@ -796,9 +803,9 @@ BEGIN
   EXEC web.SetContentType( 'text/html;charset=utf-8' )
   SELECT '<html>
 <head>
-<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\">
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
 <title>' | title | '</title>
 <style>
    body{font-family:sans-serif;}
@@ -812,7 +819,7 @@ GO
 CREATE FN [web].[ErrTrail]() AS 
 BEGIN 
 
-SELECT  '<p><a href=\"/\">Home</a></body></html>'
+SELECT  '<p><a href="/">Home</a></body></html>'
 
 END
 GO
@@ -952,7 +959,6 @@ INSERT INTO [web].[File](Id,[Path],[ContentType],[Content]) VALUES
 (16,'/favicon.ico','image/x-icon',0x00000100010010100000010020002804000016000000280000001000000020000000010020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ff840008ffc60008ffbd0008ffc60008ff830000000000000000000000000000000000000000000000000000000000000000000000000000ff190009ffef0008ff620009ff38000000000009ff380008ff620009ffec0000ff150000000000000000000000000000000000000000000000000000ff160008ffc30000ff0f00000000000000000000000000000000000000000000ff120008ffc30000ff1400000000000000000000000000000000000000000009ffcb0005ff33000000000000000000000000000000000000000000000000000000000005ff370009ffc7000000000000000000000000000000000006ff5c0007ff8e0000000000000000000000000000000000000000000000000000000000000000000000000007ff910006ff580000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000008ffbd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ffbd0000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000005ff5d0007ff8b0000000000000000000000000000000000000000000000000000000000000000000000000007ff8e0006ff5a000000000000000000000000000000000009ffcd0005ff31000000000000000000000000000000000000000000000000000000000005ff350009ffc900000000000000000000000000000000000000000000ff180008ffc20000ff0b00000000000000000000000000000000000000000000ff0e0008ffc20000ff170000000000000000000000000000000000000000000000000009ff1c0008fff30008ff600005ff37000000000005ff370008ff600008fff00000ff180000000000000000000000000000000000000000000000000000000000000000000000000009ff870009ffc80008ffbf0009ffc80008ff86000000000000000000000000000000000000000000000000)
 GO
 
---############################################
 CREATE SCHEMA [browse]
 GO
 
@@ -991,7 +997,7 @@ BEGIN
   IF ex != '' SELECT '<p>Error: ' | ex
   SELECT '<form method=post>' 
   EXECUTE( browse.FormInsertSql( t, c ) )
-  SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
+  SELECT '<p><input name="$submit" type=submit value=Save></form>'
   EXEC admin.Trailer()
 END
 GO
@@ -1019,10 +1025,10 @@ BEGIN
   
   EXEC admin.Head( 'Add ' | browse.TableTitle( t ) )
   IF ex != '' SELECT '<p>Error: ' | web.Encode( ex )
-  SELECT '<form method=post enctype=\"multipart/form-data\">' 
+  SELECT '<form method=post enctype="multipart/form-data">' 
   EXECUTE( browse.FormInsertSql( t, 0 ) )
 
-  SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
+  SELECT '<p><input name="$submit" type=submit value=Save></form>'
   EXEC admin.Trailer()
 END
 GO
@@ -1050,7 +1056,7 @@ BEGIN
     EXEC admin.Head( 'Column ' | colName )
     SELECT '<h1>Column ' | colName | '</h1><form method=post>' 
     EXECUTE( browse.FormUpdateSql( tid, c ) )
-    SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
+    SELECT '<p><input name="$submit" type=submit value=Save></form>'
     EXEC admin.Trailer()
   END
 END
@@ -1086,11 +1092,11 @@ BEGIN
   EXEC admin.Head( 'Edit ' | browse.TableTitle( t ) )
   IF ex != '' SELECT '<p>Error: ' | web.Encode(ex)
 
-  SELECT '<form method=post enctype=\"multipart/form-data\">'  
+  SELECT '<form method=post enctype="multipart/form-data">'  
   EXECUTE( browse.FormUpdateSql( t, k ) )
-  SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
+  SELECT '<p><input name="$submit" type=submit value=Save></form>'
 
-  SELECT '<form method=post><input name=\"$submit\" type=submit value=Delete></form>'
+  SELECT '<form method=post><input name="$submit" type=submit value=Delete></form>'
   EXEC admin.Trailer()
 END
 GO
@@ -1190,7 +1196,7 @@ BEGIN
     EXEC admin.Head( 'Browse Info for ' | sys.TableName(k) )
     SELECT '<form method=post>' 
     EXECUTE( browse.FormUpdateSql( tid, k ) )
-    SELECT '<p><input name=\"$submit\" type=submit value=Save></form>'
+    SELECT '<p><input name="$submit" type=submit value=Save></form>'
     EXEC admin.Trailer()
   END
 END
@@ -1239,7 +1245,7 @@ BEGIN
 
   SELECT '<form method=post><p>New Column Name: <input name=cn>
 <p>Datatype: <select name=dt>' | options | '<select> 
-<p><input type=submit value=\"Ok\">
+<p><input type=submit value="Ok">
 </form>' 
   EXEC admin.Trailer()
   
@@ -1262,7 +1268,7 @@ BEGIN
 
   EXEC admin.Head( 'New Table' )
 
-  SELECT '<form method=post><p>New Table Name: <input name=n> <input type=submit value=\"Ok\"></form>' 
+  SELECT '<form method=post><p>New Table Name: <input name=n> <input type=submit value="Ok"></form>' 
 
   EXEC admin.Trailer()
 
@@ -1294,20 +1300,20 @@ BEGIN
   EXEC admin.Head( title )
   SELECT '<b>' | title | '</b> <a href=/browse-Info?' | browse.tablearg(t) | ba | '>Settings</a>'   
     | '<p><b>Columns:</b> ' | browse.ColNames( t, ba )
-    | ' <a href=\"/browse-NewColumn?' | browse.tablearg(t) | ba | '\">New Column</a>'
+    | ' <a href="/browse-NewColumn?' | browse.tablearg(t) | ba | '">New Column</a>'
 /*
   SELECT '<p><b>Indexes</b>'
   SELECT '<br>' | sys.QuoteName(Name) | ' ' | sys.IndexCols(Id)
   FROM sys.Index WHERE Table = t
 */
-  SELECT '<p><b>Rows</b> <a href=\"/browse-AddRow?' | browse.tablearg(t) | ba | '\">Add</a>'
+  SELECT '<p><b>Rows</b> <a href="/browse-AddRow?' | browse.tablearg(t) | ba | '">Add</a>'
 
   DECLARE colvalues string SET colvalues = browse.ColValues(t,ba)
   IF colvalues != '' SET colvalues = '|' | colvalues 
 
   DECLARE orderBy string SET orderBy = DefaultOrder FROM browse.Table WHERE Id = t
-  DECLARE sql string SET sql ='SELECT ''<br><a href=\"/browse-Row?' | browse.tablearg(t)
-    | '&k=''| Id | ''' | ba |'\">Show</a> '''
+  DECLARE sql string SET sql ='SELECT ''<br><a href="/browse-Row?' | browse.tablearg(t)
+    | '&k=''| Id | ''' | ba |'">Show</a> '''
     | colvalues
     | ' FROM ' 
     | sys.TableName(Id)
@@ -1356,7 +1362,7 @@ BEGIN
   SET table = Table FROM sys.Column WHERE Id = colid
 
   SELECT '<p><b>' | browse.TableTitle( table ) | '</b>'
-     | ' <a href=\"/browse-AddChild?' | browse.fieldarg(colid) | '&p=' | k | ba | '\">Add</a>'
+     | ' <a href="/browse-AddChild?' | browse.fieldarg(colid) | '&p=' | k | ba | '">Add</a>'
 
   EXECUTE( browse.ChildSql( colid, k, ba ) )
 
@@ -1382,7 +1388,7 @@ BEGIN
     SET ob = DefaultOrder FROM browse.Table WHERE Id = ref
     SET result |= '|''<TD' | CASE WHEN type % 8 != 2 THEN ' align=right' ELSE '' END | '>''|'
       | CASE 
-        WHEN nf != '' THEN '''<a href=\"/browse-Row?' | browse.tablearg(ref) | '&k=''|' | col | '|''' | ba | '\">''|' | nf | '(' | col | ')' | '|''</a>''' 
+        WHEN nf != '' THEN '''<a href="/browse-Row?' | browse.tablearg(ref) | '&k=''|' | col | '|''' | ba | '">''|' | nf | '(' | col | ')' | '|''</a>''' 
         ELSE browse.Sql(2,colid,browse.GetDatatype(type,colid))
         END,
         th = th | '<TH>' | CASE WHEN label != '' THEN label ELSE colName END
@@ -1390,7 +1396,7 @@ BEGIN
   DECLARE kcol string SET kcol = sys.QuoteName(Name) FROM sys.Column WHERE Id = colId
   RETURN 
    'SELECT ''<TABLE><TR><TH>' | th | ''' '
-   | 'SELECT ' | '''<TR><TD><a href=\"/browse-Row?' | browse.tablearg(table) | '&k=''| Id | ''' | ba | '\">Show</a> '''
+   | 'SELECT ' | '''<TR><TD><a href="/browse-Row?' | browse.tablearg(table) | '&k=''| Id | ''' | ba | '">Show</a> '''
      | result | ' FROM ' | sys.TableName( table ) | ' WHERE ' | kcol | ' = ' | k | CASE WHEN ob != '' THEN ' ORDER BY ' | ob ELSE '' END
    | ' SELECT ''</TABLE>'''
 END
@@ -1399,7 +1405,7 @@ GO
 CREATE FN [browse].[ColNames]( table int, ba string ) RETURNS string AS
 BEGIN
   DECLARE col string
-  FOR col = '<a href=\"/browse-ColInfo?k=' | Id | ba | '\">' | Name | '</a>' 
+  FOR col = '<a href="/browse-ColInfo?k=' | Id | ba | '">' | Name | '</a>' 
     | ' ' | sys.TypeName(Type) /* | ' pos=' | browse.ColPos(Id) */
   FROM sys.Column WHERE Table = table
   ORDER BY browse.ColPos(Id), Id
@@ -1439,7 +1445,7 @@ BEGIN
     SET result |= CASE WHEN result = '' THEN '' ELSE '|'', ''|' END | 
       CASE 
       WHEN nf != '' 
-      THEN '''<a href=\"/browse-Row?' | browse.tablearg(ref) | '&k=''|' | col | '|'''|ba|'\">''|' | nf | '(' | col | ')' | '|''</a>''' 
+      THEN '''<a href="/browse-Row?' | browse.tablearg(ref) | '&k=''|' | col | '|'''|ba|'">''|' | nf | '(' | col | ')' | '|''</a>''' 
 
       ELSE browse.Sql(1,colid,datatype)
       END
@@ -1462,7 +1468,7 @@ BEGIN
   FROM browse.Datatype
   ORDER BY browse.DatatypeName(Id)
   SET options |= opt
-  RETURN '<select id=\"' | col | '\" name=\"' | col | '\">' | options | 
+  RETURN '<select id="' | col | '" name="' | col | '">' | options | 
      '<option ' | CASE WHEN sel = 0 THEN ' selected' ELSE '' END | ' value=0></option>'
      | '</select>'
 END
@@ -1483,7 +1489,7 @@ GO
 
 CREATE FN [browse].[DownloadLink](id int,colid int) RETURNS string AS
 BEGIN 
-   RETURN '<a target=_blank href=\"/browse-File?k=' | id | '&c=' | colid |'\">Download</a>'
+   RETURN '<a target=_blank href="/browse-File?k=' | id | '&c=' | colid |'">Download</a>'
 END
 GO
 
@@ -1563,7 +1569,7 @@ BEGIN
   DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colid
   DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colid
   IF size = 0 SET size = 50
-  RETURN browse.Label(colid) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=\"' | value | '\">'
+  RETURN browse.Label(colid) | '<input id="' | cn | '" name="' | cn | '" size=' | size | ' value="' | value | '">'
 END
 GO
 
@@ -1571,7 +1577,7 @@ CREATE FN [browse].[InputBool]( colId int, value bool ) RETURNS string AS
 BEGIN
   DECLARE cn string 
   SET cn = Name FROM sys.Column WHERE Id = colId
-  RETURN browse.Label(colId) | '<input type=checkbox id=\"' | cn | '\" name=\"' | cn | '\"' | CASE WHEN value THEN ' checked' ELSE '' END | '>'
+  RETURN browse.Label(colId) | '<input type=checkbox id="' | cn | '" name="' | cn | '"' | CASE WHEN value THEN ' checked' ELSE '' END | '>'
 END
 GO
 
@@ -1581,7 +1587,7 @@ BEGIN
   DECLARE size int 
   SET size = InputCols FROM browse.Column WHERE Id = colid
   IF size = 0 SET size = 15
-  RETURN browse.Label(colid) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | size | '\"' | ' value=\"' | value | '\">'
+  RETURN browse.Label(colid) | '<input id="' | cn | '" name="' | cn | '" size="' | size | '"' | ' value="' | value | '">'
 END
 GO
 
@@ -1590,7 +1596,7 @@ BEGIN
   DECLARE cn string 
   SET cn = Name FROM sys.Column WHERE Id = colid
 
-  RETURN browse.Label(colid) | '<input type=file id=\"' | cn | '\" name=\"' | cn | '\">'
+  RETURN browse.Label(colid) | '<input type=file id="' | cn | '" name="' | cn | '">'
 END
 GO
 
@@ -1599,7 +1605,7 @@ BEGIN
   DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
   DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 10
-  RETURN browse.Label(colId) | '<input type=number id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | value | '>'
+  RETURN browse.Label(colId) | '<input type=number id="' | cn | '" name="' | cn | '" size=' | size | ' value=' | value | '>'
 END
 GO
 
@@ -1611,11 +1617,11 @@ BEGIN
   FROM browse.Column WHERE Id = colId
   IF cols = 0 SET cols = 50
   IF rows > 0
-    RETURN '<textarea id=\"' | cn | '\" name=\"' | cn | '\" cols=\"' | cols | '\"' | '\" rows=\"' | rows |'\"'
+    RETURN browse.Label(colId) | '<br><textarea id="' | cn | '" name="' | cn | '" cols="' | cols | '"' | '" rows="' | rows |'"'
       | CASE WHEN value = '' THEN 'placeholder=' | web.Attr(description) ELSE '' END
-      | '\">' | web.Encode(value) | '</textarea>'
+      | '">' | web.Encode(value) | '</textarea>'
   ELSE
-    RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=\"' | cols | '\"' | ' value=' | web.Attr(value) | '>'
+    RETURN browse.Label(colId) | '<input id="' | cn | '" name="' | cn | '" size="' | cols | '"' | ' value=' | web.Attr(value) | '>'
 END
 GO
 
@@ -1624,7 +1630,7 @@ BEGIN
   DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
   DECLARE size int SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 20
-  RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.MicroSecToString(value)) | '>'
+  RETURN browse.Label(colId) | '<input id="' | cn | '" name="' | cn | '" size=' | size | ' value=' | web.Attr(date.MicroSecToString(value)) | '>'
 END
 GO
 
@@ -1642,7 +1648,7 @@ BEGIN
   DECLARE size int
   SET size = InputCols FROM browse.Column WHERE Id = colId
   IF size = 0 SET size = 10
-  RETURN browse.Label(colId) | '<input id=\"' | cn | '\" name=\"' | cn | '\" size=' | size | ' value=' | web.Attr(date.YearMonthDayToString(value)) | '>'
+  RETURN browse.Label(colId) | '<input id="' | cn | '" name="' | cn | '" size=' | size | ' value=' | web.Attr(date.YearMonthDayToString(value)) | '>'
 END
 GO
 
@@ -1755,7 +1761,7 @@ BEGIN
   FROM sys.Schema
   ORDER BY Name
   SET options |= opt
-  RETURN '<select id=\"' | col | '\" name=\"' | col | '\">' | options | 
+  RETURN '<select id="' | col | '" name="' | col | '">' | options | 
      '<option ' | CASE WHEN sel = 0 THEN ' selected' ELSE '' END | ' value=0></option>'
      | '</select>'
 END
@@ -1763,7 +1769,7 @@ GO
 
 CREATE FN [browse].[ShowImage](id int,colid int) RETURNS string AS
 BEGIN 
-   RETURN '<img style=\"max-width:300px;\" src=\"/browse-File?k=' | id | '&c=' | colid |'\">'
+   RETURN '<img style="max-width:300px;" src="/browse-File?k=' | id | '&c=' | colid |'">'
 END
 GO
 
@@ -1789,7 +1795,7 @@ BEGIN
       | '''<p>' | label | ': '' | '
       | CASE 
         WHEN datatype != 0 THEN browse.Sql(2,colid,datatype)
-        WHEN nf != '' THEN '''<a href=\"/browse-Row?' | browse.tablearg(ref)| '&k=''|' | col | '|''' | ba | '\">''|' | nf | '(' | col | ')' | '|''</a>''' 
+        WHEN nf != '' THEN '''<a href="/browse-Row?' | browse.tablearg(ref)| '&k=''|' | col | '|''' | ba | '">''|' | nf | '(' | col | ')' | '|''</a>''' 
         ELSE col
         END
   END
@@ -1809,7 +1815,7 @@ BEGIN
       SELECT ''<b>'' | title | ''</b><br>''
   '
   | ' SELECT ' | cols | ' FROM ' | sys.TableName(table) | ' WHERE Id = k'
-  | ' SELECT ''<p><a href=\"/browse-EditRow?'' | browse.tablearg(t) | ''&k='' | k | '''| ba |'\">Edit</a>'''
+  | ' SELECT ''<p><a href="/browse-EditRow?'' | browse.tablearg(t) | ''&k='' | k | '''| ba |'">Edit</a>'''
   | '
 
     DECLARE col int, cd string
@@ -1821,7 +1827,7 @@ BEGIN
       EXECUTE( sql )
     END
 
-    SELECT ''<p><a href=\"/browse-Table?'' | browse.tablearg(t) | ''\">'' | browse.TableTitle(t) | '' Table</a>''
+    SELECT ''<p><a href="/browse-Table?'' | browse.tablearg(t) | ''">'' | browse.TableTitle(t) | '' Table</a>''
     EXEC admin.Trailer()
   END
   ELSE
@@ -2168,7 +2174,7 @@ BEGIN
   FROM sys.Table
   ORDER BY sys.TableName(Id)
   SET options |= opt
-  RETURN '<select id=\"' | col | '\" name=\"' | col | '\">' | options | 
+  RETURN '<select id="' | col | '" name="' | col | '">' | options | 
      '<option ' | CASE WHEN sel = 0 THEN ' selected' ELSE '' END | ' value=0></option>'
      | '</select>'
 END
@@ -2351,7 +2357,6 @@ GO
 INSERT INTO [browse].[Table](Id,[NameFunction],[SelectFunction],[DefaultOrder],[Title],[Description],[Role]) VALUES 
 GO
 
---############################################
 CREATE SCHEMA [email]
 GO
 
@@ -2408,7 +2413,7 @@ BEGIN
   ORDER BY Id
   SET options |= opt
 
-  RETURN '<select id=\"' | col | '\" name=\"' | col | '\">' | options 
+  RETURN '<select id="' | col | '" name="' | col | '">' | options 
     | '<option ' | CASE WHEN sel = 0 THEN ' selected' ELSE '' END | ' value=0></option>'
     | '</select>'
 END
@@ -2481,7 +2486,7 @@ BEGIN
   ORDER BY Id
   SET options |= opt
 
-  RETURN '<select id=\"' | col | '\" name=\"' | col | '\">' | options 
+  RETURN '<select id="' | col | '" name="' | col | '">' | options 
     | '<option ' | CASE WHEN sel = 0 THEN ' selected' ELSE '' END | ' value=0></option>'
     | '</select>'
 END
@@ -2502,7 +2507,6 @@ GO
 INSERT INTO [email].[SmtpAccount](Id,[server],[username],[password]) VALUES 
 GO
 
---############################################
 CREATE SCHEMA [login]
 GO
 
@@ -2553,7 +2557,7 @@ GO
 
 CREATE FN [login].[hash](s string) RETURNS binary AS
 BEGIN
-  SET result = ARGON(s,'Sep 14 2022 saltiness')
+  SET result = ARGON(s,'Feb 29 2022 saltiness')
 END
 GO
 
@@ -2597,7 +2601,6 @@ GO
 INSERT INTO [login].[user](Id,[Name],[HashedPassword]) VALUES 
 GO
 
---############################################
 CREATE SCHEMA [timed]
 GO
 
@@ -2647,7 +2650,6 @@ GO
 INSERT INTO [timed].[Job](Id,[fn],[at]) VALUES 
 GO
 
---############################################
 CREATE SCHEMA [log]
 GO
 
@@ -2688,7 +2690,6 @@ GO
 INSERT INTO [log].[Transaction](Id,[data]) VALUES 
 GO
 
---############################################
 CREATE SCHEMA [admin]
 GO
 
@@ -2699,11 +2700,12 @@ BEGIN
    EXEC admin.Head('Admin Home')
 
    SELECT '
-<p><a target=_blank href=\"/\">Domain Home</a>
+<p><a target=_blank href="/">Domain Home</a>
 <p><a href=/admin-Execute>Execute SQL</a>
 <p><a href=/browse-Table?s=login&n=user>Logins</a>
 <p><a href=/browse-Table?s=web&n=File>Files</a>
-<p><a target=_blank href=/admin-ScriptAll>Script All</a> 
+<p><a target=_blank href=/admin-ScriptAll?option=0>Script All</a> 
+  | <a target=_blank href=/admin-ScriptAll?option=1>Script (no data)</a> 
   | <a target=_blank href=/admin-ScriptSystem>Script System</a>    
   | <a target=_blank href=/log-getall>Exact</a>
 <p><a href=/admin-CheckAll>Check all functions compile ok</a> 
@@ -2760,7 +2762,7 @@ BEGIN
   IF ex != '' SELECT '<p>Error: ' | web.Encode( ex )
   SELECT 
      '<p><form method=post>'
-     | '<input type=submit value=\"ALTER\"> <a href=/admin-Schema?s=' | s | '>' | s | '</a> . ' | n 
+     | '<input type=submit value="ALTER"> <a href=/admin-Schema?s=' | s | '>' | s | '</a> . ' | n 
      | CASE WHEN SUBSTRING(n,1,1) = '/' THEN ' <a href=' | n | '>Go</a>' ELSE '' END
      | '<br><textarea name=def rows=40 cols=150>' | web.Encode(def) | '</textarea>' 
      | '</form>' 
@@ -2777,7 +2779,7 @@ BEGIN
   SELECT 
      '<p><form method=post>'
      | 'SQL to <input type=submit value=Execute>'
-     | '<br><textarea name=sql rows=20 cols=100' | CASE WHEN sql='' THEN ' placeholder=\"Enter SQL here. See Manual for details.\"' ELSE '' END | '>' | web.Encode(sql) | '</textarea>' 
+     | '<br><textarea name=sql rows=20 cols=100' | CASE WHEN sql='' THEN ' placeholder="Enter SQL here. See Manual for details."' ELSE '' END | '>' | web.Encode(sql) | '</textarea>' 
      | '</form>' 
   IF sql != '' 
   BEGIN
@@ -2945,10 +2947,10 @@ SELECT '<h1>Manual</h1>
 <h3>DROP INDEX</h3><p>DROP INDEX indexname ON schema.tablename<p>The specified index is removed from the database.
 <h2>Comments</h2>
 <p>There are two kinds of comments. Single line comments start with -- and extend to the end of the line. Delimited comments start with /* and are terminated by */. Comments have no effect, they are simply to help document the code.
-<h2>Comparison with other SQL implementations</h2><p>There is a single variable length string datatype \"string\" for unicode strings ( equivalent to nvarchar(max) in MSSQL ), no fixed length strings.
-<p>Similarly there is a single binary datatype \"binary\" equivalent to varbinary(max) in MSSQL.
+<h2>Comparison with other SQL implementations</h2><p>There is a single variable length string datatype "string" for unicode strings ( equivalent to nvarchar(max) in MSSQL ), no fixed length strings.
+<p>Similarly there is a single binary datatype "binary" equivalent to varbinary(max) in MSSQL.
 <p>Every table automatically gets an integer Id field ( it does not have to be specified ), which is automatically filled in if not specified in an INSERT statement. Id values must be unique ( an attempt to insert or assign a duplicate Id will raise an exception ). 
-<p>WHERE condition is not optional in UPDATE and DELETE statements - WHERE true can be used if you really want to UPDATE or DELETE all rows. This is a \"safety\" feature.
+<p>WHERE condition is not optional in UPDATE and DELETE statements - WHERE true can be used if you really want to UPDATE or DELETE all rows. This is a "safety" feature.
 <p>Local variables cannot be assigned with SELECT, instead SET or FOR is used, can be FROM a table, e.g.
 <p>DECLARE s string SET s = Name FROM sys.Schema WHERE Id = schema
 <p>No cursors ( use FOR instead ).
@@ -2990,7 +2992,7 @@ END
 
   EXEC admin.Head( 'New Function' )
 
-  SELECT '<form method=post><p>New Function Name: <input name=n> <input type=submit value=\"Ok\"></form>' 
+  SELECT '<form method=post><p>New Function Name: <input name=n> <input type=submit value="Ok"></form>' 
   EXEC admin.Trailer()
 
 END
@@ -3007,14 +3009,15 @@ BEGIN
   EXEC admin.Head( 'Schema ' | s )
   SELECT '<h1>Schema ' | s | '</h1>'
 
-  SELECT '<p><a target=_blank href=\"/admin-ScriptSchema?s=' | s | '\">Script</a>'
+  SELECT '<p><a target=_blank href="/admin-ScriptSchema?s=' | s | '&option=0">Script</a>' |
+  ' | <a target=_blank href="/admin-ScriptSchema?s=' | s | '&option=1">Script (no data)</a>'
  
-  SELECT '<h3>Tables <a href=\"/browse-NewTable?s=' | s | ba | '\">New Table</a></h3>'
-  SELECT '<p><a href=\"/browse-Table?' | browse.tablearg(Id) | ba | '\">' | Name | '</a>'
+  SELECT '<h3>Tables <a href="/browse-NewTable?s=' | s | ba | '">New Table</a></h3>'
+  SELECT '<p><a href="/browse-Table?' | browse.tablearg(Id) | ba | '">' | Name | '</a>'
   FROM sys.Table WHERE Schema = sid ORDER BY Name
 
-  SELECT '<h3>Functions <a href=\"/admin-NewFunc?s=' | s | ba | '\">New Function</a></h3>' 
-  SELECT '<p><a href=\"/admin-EditFunc?s=' | s | '&n=' | Name | ba | '\">' | Name | '</a>'
+  SELECT '<h3>Functions <a href="/admin-NewFunc?s=' | s | ba | '">New Function</a></h3>' 
+  SELECT '<p><a href="/admin-EditFunc?s=' | s | '&n=' | Name | ba | '">' | Name | '</a>'
   FROM sys.Function WHERE Schema = sid ORDER BY Name
   EXEC admin.Trailer()
 END
@@ -3024,13 +3027,17 @@ CREATE FN [admin].[/admin-ScriptAll]() AS
 BEGIN 
   DECLARE cu int SET cu = login.get(0) IF cu = 0 RETURN
 
+  DECLARE option int SET option =  PARSEINT(web.Query('option'))
+
   EXEC web.SetContentType( 'text/plain;charset=utf-8' )
-
-  DECLARE mode int SET mode = 1
-
+  
+  DECLARE x int 
+  IF option = 0 SET x = HEADER( 'Content-Disposition', 'attachment' )
+ 
   DECLARE s int
+
   FOR s = Id FROM sys.Schema
-    EXEC sys.ScriptSchema(s,mode)
+    EXEC sys.ScriptSchema(s,1,option)
   FOR s = Id FROM sys.Schema
     EXEC sys.ScriptSchemaBrowse(s)
 END
@@ -3043,11 +3050,13 @@ CREATE FN [admin].[/admin-ScriptSchema]() AS BEGIN
   DECLARE sname string SET sname = web.Query('s')
   DECLARE s int SET s = Id FROM sys.Schema WHERE Name = sname
 
+  DECLARE option int SET option =  PARSEINT(web.Query('option'))
+
   EXEC web.SetContentType( 'text/plain; charset=utf-8' )
 
   DECLARE mode int SET mode = CASE WHEN sys.IncludeSchema(1,sname) THEN 1 ELSE 2 END
 
-  EXEC sys.ScriptSchema(s,mode)
+  EXEC sys.ScriptSchema(s,mode,option)
 
   EXEC sys.ScriptSchemaBrowse(s)
 
@@ -3064,7 +3073,7 @@ BEGIN
 
   DECLARE s int
   FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
-    EXEC sys.ScriptSchema(s,mode)
+    EXEC sys.ScriptSchema(s,mode,0)
   FOR s = Id FROM sys.Schema WHERE sys.IncludeSchema(mode,Name)
     EXEC sys.ScriptSchemaBrowse(s)
 END
@@ -3083,8 +3092,8 @@ BEGIN
 
   SELECT '<html>
 <head>
-<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">
-<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>' | title | '</title>
 <style>
    body{font-family:sans-serif;}
@@ -3092,13 +3101,13 @@ BEGIN
 </style>
 </head>
 <body>
-<div style=\"color:white;background:lightblue;padding:4px;\">
-' | CASE WHEN back != '' THEN '<a href=\"' | back| '\">Back</a> | ' ELSE '' END | '
+<div style="color:white;background:lightblue;padding:4px;">
+' | CASE WHEN back != '' THEN '<a href="' | back| '">Back</a> | ' ELSE '' END | '
 <a href=/admin>Admin Home</a> 
 | <a target=_blank href=/admin>New Window</a>
 | <a href=/admin-Manual>Manual</a>
 | <a href=/login-logout>Logout</a>
-| <a target=_blank href=\"/admin-EditFunc?s=' | sname | '&n=' | web.Path() | '\">Code</a> ' | date.NowString() | ' UTC</div>'
+| <a target=_blank href="/admin-EditFunc?s=' | sname | '&n=' | web.Path() | '">Code</a> ' | date.NowString() | ' UTC</div>'
 END
 GO
 
@@ -3335,4 +3344,5 @@ GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'log'
 SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'Transaction'
-GO";
+GO"#;
+
