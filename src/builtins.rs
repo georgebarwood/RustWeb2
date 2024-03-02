@@ -1,7 +1,7 @@
 use crate::share::TransExt;
 use rustdb::{
     c_int, c_value, check_types, standard_builtins, Block, BuiltinMap, CExp, CExpPtr, CompileFunc,
-    DataKind, EvalEnv, Expr, Value,
+    DataKind, EvalEnv, Expr, GenTransaction, Value,
 };
 use std::rc::Rc;
 
@@ -32,6 +32,8 @@ pub fn get_bmap() -> BuiltinMap {
             CompileFunc::Value(c_deserialise),
         ),
         ("NOLOG", DataKind::Int, CompileFunc::Int(c_nolog)),
+        ("ADLER", DataKind::Int, CompileFunc::Int(c_adler)),
+        ("DOLOG", DataKind::Int, CompileFunc::Int(c_dolog)),
     ];
     for (name, typ, cf) in list {
         bmap.insert(name.to_string(), (typ, cf));
@@ -113,7 +115,7 @@ struct SetDos {
 }
 impl CExp<i64> for SetDos {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
-        let mut result = 0;
+        let mut result = 1;
         let uid = self.uid.eval(ee, d).str().to_string();
         let mut to = [0; 4];
         for (i, item) in to.iter_mut().enumerate() {
@@ -122,8 +124,8 @@ impl CExp<i64> for SetDos {
         let mut ext = ee.tr.get_extension();
         if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.uid = uid.clone();
-            if ext.set_dos(uid, to) {
-                result = 1;
+            if !ext.set_dos(uid, to) {
+                result = 0;
             }
         }
         ee.tr.set_extension(ext);
@@ -288,6 +290,28 @@ impl CExp<Value> for Deserialise {
     }
 }
 
+/// Compile call to DOLOG.
+fn c_dolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(b, args, &[DataKind::Binary]);
+    let ser = c_value(b, &mut args[0]);
+    Box::new(DoLog { ser })
+}
+
+/// Compiled call to DOLOG
+struct DoLog {
+    ser: CExpPtr<Value>,
+}
+impl CExp<i64> for DoLog {
+    fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
+        let ser = self.ser.eval(ee, d).bin();
+        let mut tr = GenTransaction::new();
+        tr.qy = bincode::deserialize(&ser).unwrap();
+        let sql = tr.qy.sql.clone();
+        ee.db.run(&sql, &mut tr);
+        0
+    }
+}
+
 /// Compile call to NOLOG.
 fn c_nolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
@@ -304,5 +328,23 @@ impl CExp<i64> for NoLog {
         }
         ee.tr.set_extension(ext);
         0
+    }
+}
+
+/// Compile call to ADLER.
+fn c_adler(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(b, args, &[DataKind::Binary]);
+    let bytes = c_value(b, &mut args[0]);
+    Box::new(Adler { bytes })
+}
+
+/// Compiled call to ADLER
+struct Adler {
+    bytes: CExpPtr<Value>,
+}
+impl CExp<i64> for Adler {
+    fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
+        let bytes = self.bytes.eval(ee, d).bin();
+        flate3::adler32(&bytes) as i64
     }
 }

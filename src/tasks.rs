@@ -1,5 +1,5 @@
 use crate::share::{SharedState, Trans};
-use rustdb::{AccessPagedData, Database};
+use rustdb::{AccessPagedData, Database, Part};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
@@ -22,22 +22,32 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
         st.x.qy.sql = Arc::new(sql);
         st = state.process(st).await;
         println!("New replicated database initialised error={}", &st.x.rp.err);
+        let mut st = Trans::new();
+        st.log = false;
+        st.x.qy.sql = Arc::new("EXEC log.InitReplication()".to_string());
+        let _st = state.process(st).await;
     }
+    let mut fetch = {
+        let mut st = Trans::new();
+        st.log = false;
+        st.x.qy.sql = Arc::new("EXEC log.GetFetch()".to_string());
+        st = state.process(st).await;
+        let s = std::str::from_utf8(&st.x.rp.output).unwrap();
+        s.parse::<u64>().unwrap()
+    };
+    println!("Backup from fetch={}", fetch);
     loop {
-        let tid = {
-            let apd = AccessPagedData::new_reader(state.spd.clone());
-            let db = Database::new(apd, "", state.bmap.clone());
-            let lt = db.table("log", "Transaction");
-            lt.get_id_gen(&db)
-        };
-        let url = format!("/log-get?k={tid}");
+        let url = format!("/log-get?k={fetch}");
         let ser = rget(state.clone(), &url).await;
         if !ser.is_empty() {
             let mut st = Trans::new();
-            st.replication = true;
-            st.x.qy = bincode::deserialize(&ser).unwrap();
+            let mut part = Part::default();
+            part.data = Arc::new(ser);
+            st.x.qy.parts.push(part);
+            st.x.qy.sql = Arc::new("EXEC log.Save()".to_string());
             state.process(st).await;
-            println!("Replicated database updated Transaction Id={tid}");
+            println!("Saved ToDo Transaction Id={fetch}");
+            fetch += 1;
         }
     }
 }
