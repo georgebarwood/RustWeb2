@@ -2695,7 +2695,7 @@ GO
 
 CREATE FN [log].[GetFetch]() AS 
 BEGIN
-  -- Called from Rust tasks::sync_loop
+  -- Called from Rust tasks::sync_loop 88
   SELECT Fetch FROM log.Status
 END
 GO
@@ -2717,7 +2717,7 @@ GO
 
 CREATE FN [log].[Roll]() AS 
 BEGIN
-  -- This applies all updates. In practice updates should limited or filtered in some way.
+  -- This applies all updates. In practice updates should be limited or filtered in some way.
   
   DECLARE f int, a int, data binary, dummy int
   SET dummy = NOLOG()
@@ -2725,8 +2725,7 @@ BEGIN
   SET f = Fetch, a = Apply FROM log.Status
   WHILE a < f
   BEGIN
-    SET data = Data FROM log.ToDo WHERE Id = a
-    INSERT INTO log.Transaction( data ) VALUES ( data )
+    SET data = BINUNPACK(Data) FROM log.ToDo WHERE Id = a
     DELETE FROM log.ToDo WHERE Id = a
     SET dummy = DOLOG(data)
     SET a = a + 1
@@ -2741,7 +2740,7 @@ BEGIN
   SELECT NOLOG()
 
   DECLARE data binary, tid int, time int
-  SET data = FILECONTENT(0)
+  SET data = BINPACK(FILECONTENT(0))
   SET time = date.Ticks()
   SET tid = Fetch FROM log.Status
      

@@ -219,14 +219,12 @@ fn c_binpack(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
 struct Binpack {
     bytes: CExpPtr<Value>,
 }
+
 impl CExp<Value> for Binpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
-        if let Value::RcBinary(data) = self.bytes.eval(ee, d) {
-            let cb: Vec<u8> = flate3::deflate(&data);
-            Value::RcBinary(Rc::new(cb))
-        } else {
-            panic!();
-        }
+        let data = self.bytes.eval(ee, d);
+        let cb: Vec<u8> = flate3::deflate(data.bina());
+        Value::RcBinary(Rc::new(cb))
     }
 }
 /// Compile call to BINUNPACK.
