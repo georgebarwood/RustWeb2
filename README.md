@@ -53,6 +53,9 @@ Replication is enabled by records being inserted in the log.Transaction table.
 
 These records can be periodically deleted, provided that all replication servers are up to date.
 
+Note: starting from version 1.1.1 (March 2024) transaction records are not applied until log.Roll() is executed. 
+This means that in the event of an accident (such as an incorrect drop, update or delete statement) the database can be recovered by omitting the faulty transaction in log.Roll().
+
 Email
 =====
 
