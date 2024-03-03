@@ -239,12 +239,9 @@ struct Binunpack {
 }
 impl CExp<Value> for Binunpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
-        if let Value::RcBinary(data) = self.bytes.eval(ee, d) {
-            let ucb: Vec<u8> = flate3::inflate(&data);
-            Value::RcBinary(Rc::new(ucb))
-        } else {
-            panic!();
-        }
+        let data = self.bytes.eval(ee, d);
+        let ucb: Vec<u8> = flate3::inflate(data.bina());
+        Value::RcBinary(Rc::new(ucb))
     }
 }
 
@@ -281,8 +278,8 @@ struct Deserialise {
 
 impl CExp<Value> for Deserialise {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
-        let ser = self.ser.eval(ee, d).bin();
-        let qy: rustdb::gentrans::GenQuery = bincode::deserialize(&ser).unwrap();
+        let ser = self.ser.eval(ee, d);
+        let qy: rustdb::gentrans::GenQuery = bincode::deserialize(ser.bina()).unwrap();
         let s = serde_json::to_string(&qy).unwrap();
         Value::String(Rc::new(s))
     }
@@ -301,9 +298,9 @@ struct DoLog {
 }
 impl CExp<i64> for DoLog {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
-        let ser = self.ser.eval(ee, d).bin();
+        let ser = self.ser.eval(ee, d);
         let mut tr = GenTransaction::new();
-        tr.qy = bincode::deserialize(&ser).unwrap();
+        tr.qy = bincode::deserialize(ser.bina()).unwrap();
         let sql = tr.qy.sql.clone();
         ee.db.run(&sql, &mut tr);
         0
@@ -342,7 +339,7 @@ struct Adler {
 }
 impl CExp<i64> for Adler {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
-        let bytes = self.bytes.eval(ee, d).bin();
-        flate3::adler32(&bytes) as i64
+        let bytes = self.bytes.eval(ee, d);
+        flate3::adler32(bytes.bina()) as i64
     }
 }
