@@ -2650,115 +2650,6 @@ GO
 INSERT INTO [timed].[Job](Id,[fn],[at]) VALUES 
 GO
 
-CREATE SCHEMA [log]
-GO
-
-CREATE TABLE [log].[Status]([Fetch] int,[Apply] int) 
-GO
-
-CREATE TABLE [log].[ToDo]([Data] binary,[FetchTime] int) 
-GO
-
-CREATE TABLE [log].[Transaction]([data] binary) 
-GO
-
-CREATE FN [log].[/log-get]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  DECLARE k int SET k = PARSEINT( web.Query('k') )
-
-  DECLARE id int, d binary
-
-  SET id = Id, d = data FROM log.Transaction WHERE Id = k
-
-  IF id = k 
-    SELECT d
-  ELSE
-  BEGIN
-    DECLARE dummy int SET dummy = TRANSWAIT()
-  END
-END
-GO
-
-CREATE FN [log].[/log-getall]() AS 
-BEGIN 
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
-
-  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
-
-  DECLARE t int
-  FOR t = Id FROM sys.Table
-    EXEC sys.ScriptData(t,3)
-END
-GO
-
-CREATE FN [log].[GetFetch]() AS 
-BEGIN
-  -- Called from Rust tasks::sync_loop 88
-  SELECT Fetch FROM log.Status
-END
-GO
-
-CREATE FN [log].[InitReplication]() AS 
-BEGIN
-  -- Called from Rust tasks::sync_loop 
-  SELECT NOLOG()
-
-  DECLARE s int, gen int
-  SET s = Id FROM sys.Schema WHERE Name = 'log'
-  SET gen = IdGen FROM sys.Table WHERE Schema = s AND Name = 'Transaction'
-
-  DELETE FROM log.Status WHERE true
-
-  INSERT INTO log.Status(Fetch,Apply) VALUES (gen,gen)
-END
-GO
-
-CREATE FN [log].[Roll]() AS 
-BEGIN
-  -- This applies all updates. In practice updates should be limited or filtered in some way.
-  
-  DECLARE f int, a int, data binary, dummy int
-  SET dummy = NOLOG()
-
-  SET f = Fetch, a = Apply FROM log.Status
-  WHILE a < f
-  BEGIN
-    SET data = BINUNPACK(Data) FROM log.ToDo WHERE Id = a
-    DELETE FROM log.ToDo WHERE Id = a
-    SET dummy = DOLOG(data)
-    SET a = a + 1
-  END
-  UPDATE log.Status SET Apply = a WHERE true
-END
-GO
-
-CREATE FN [log].[Save]() AS 
-BEGIN
-  -- Called from Rust tasks::sync_loop 
-  SELECT NOLOG()
-
-  DECLARE data binary, tid int, time int
-  SET data = BINPACK(FILECONTENT(0))
-  SET time = date.Ticks()
-  SET tid = Fetch FROM log.Status
-     
-  INSERT INTO log.ToDo( Id, Data, FetchTime ) VALUES ( tid, data, time )
-
-  UPDATE log.Status SET Fetch = Fetch + 1 WHERE true
-END
-GO
-
-INSERT INTO [log].[Status](Id,[Fetch],[Apply]) VALUES 
-GO
-
-INSERT INTO [log].[ToDo](Id,[Data],[FetchTime]) VALUES 
-GO
-
-INSERT INTO [log].[Transaction](Id,[data]) VALUES 
-GO
-
 CREATE SCHEMA [admin]
 GO
 
@@ -3186,6 +3077,103 @@ BEGIN
 END
 GO
 
+CREATE SCHEMA [log]
+GO
+
+CREATE TABLE [log].[Status]([Done] int) 
+GO
+
+CREATE TABLE [log].[Transaction]([data] binary) 
+GO
+
+CREATE FN [log].[/log-get]() AS 
+BEGIN 
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  DECLARE k int SET k = PARSEINT( web.Query('k') )
+
+  DECLARE id int, d binary
+
+  SET id = Id, d = data FROM log.Transaction WHERE Id = k
+
+  IF id = k 
+    SELECT d
+  ELSE
+  BEGIN
+    DECLARE dummy int SET dummy = TRANSWAIT()
+  END
+END
+GO
+
+CREATE FN [log].[/log-getall]() AS 
+BEGIN 
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+
+  EXEC web.SetContentType( 'text/plain; charset=utf-8' )
+
+  DECLARE t int
+  FOR t = Id FROM sys.Table
+    EXEC sys.ScriptData(t,3)
+END
+GO
+
+CREATE FN [log].[GetFetch]() AS 
+BEGIN
+  -- Called from Rust tasks::sync_loop
+  SELECT log.NextTransaction()
+END
+GO
+
+CREATE FN [log].[InitReplication]() AS 
+BEGIN
+  -- Called from Rust tasks::sync_loop 
+  SELECT NOLOG()
+  DELETE FROM log.Status WHERE true
+  INSERT INTO log.Status(Done) VALUES ( log.NextTransaction() )
+END
+GO
+
+CREATE FN [log].[NextTransaction]() RETURNS int AS 
+BEGIN
+  DECLARE s int, gen int
+  SET s = Id FROM sys.Schema WHERE Name = 'log'
+  SET result = IdGen FROM sys.Table WHERE Schema = s AND Name = 'Transaction'
+END
+GO
+
+CREATE FN [log].[Roll]() AS 
+BEGIN
+  -- This applies all updates. Updates may need to be limited or filtered in some way.
+  
+  DECLARE nt int, a int, d binary, dummy int
+  SET dummy = NOLOG()
+
+  SET nt = log.NextTransaction()
+  SET a = Done FROM log.Status
+  WHILE a < nt
+  BEGIN
+    SET d = data FROM log.Transaction WHERE Id = a
+    SET dummy = DOLOG(d)
+    SET a = a + 1
+  END
+  UPDATE log.Status SET Done = a WHERE true
+END
+GO
+
+CREATE FN [log].[Save]() AS 
+BEGIN
+  -- Called from Rust tasks::sync_loop 
+  SELECT NOLOG() 
+  INSERT INTO log.Transaction( data ) VALUES ( FILECONTENT(0) )
+END
+GO
+
+INSERT INTO [log].[Status](Id,[Done]) VALUES 
+GO
+
+INSERT INTO [log].[Transaction](Id,[data]) VALUES 
+GO
+
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'sys'
 SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'Column'
@@ -3413,16 +3401,6 @@ GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'log'
 SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'Status'
-GO
-DECLARE tid int, sid int, cid int, rs int, rt int
-SET sid = Id FROM sys.Schema WHERE Name = 'log'
-SET tid = Id FROM sys.Table WHERE Schema = sid AND Name = 'ToDo'
-SET cid=Id FROM sys.Column WHERE Table = tid AND Name = 'FetchTime'
-SET rs = 0 SET rs =Id FROM sys.Schema WHERE Name = '' 
-SET rt = 0 SET rt =Id FROM sys.Table WHERE Schema = rs AND Name = ''
-
-INSERT INTO browse.Column(Id,[Position],[Label],[Description],[RefersTo],[Default],[InputCols],[InputRows],[InputFunction],[ChildDisplayFunction],[Datatype]) 
-VALUES (cid, 0,'','',rt,'',0,0,'','',3)
 GO
 DECLARE tid int, sid int, cid int, rs int, rt int
 SET sid = Id FROM sys.Schema WHERE Name = 'log'
