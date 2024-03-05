@@ -24,9 +24,9 @@ Initially login security is disabled. To enable it
 
 (1) Edit the function login.hash and change the salt string.
 
-(2) Use the Logins Menu link to set add a login user and set password.
+(2) Use the Logins Menu link to add a login user and set password.
 
-(3) Edit the function login.get ( see instructions included there ).
+(3) Edit the function login.user ( see instructions included there ).
 
 Initialisation
 ==============
