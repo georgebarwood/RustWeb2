@@ -121,8 +121,9 @@ fn main_inner() {
                 db.run(&sql, &mut sm.trans.x);
                 if !sm.trans.no_log() && (sm.trans.replication || (sm.trans.log && db.changed())) {
                     if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
-                        // Append serialised transaction to log.Transaction table
+                        // Append compressed, serialised transaction to log.Transaction table
                         let ser = bincode::serialize(&sm.trans.x.qy).unwrap();
+                        let ser = flate3::deflate(&ser);
                         let ser = Value::RcBinary(Rc::new(ser));
                         let mut row = t.row();
                         row.id = t.alloc_id(&db);

@@ -2536,13 +2536,6 @@ GO
 CREATE FN [login].[get]( role int ) RETURNS int AS
 BEGIN
   /* Get the current logged in user, if none, output login form. Note: role is not yet checked */
-
-  /*
-     Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
-     In addition, the salt string in login.Hash should be changed.
-  */
-  RETURN 1 -- Login disabled.
-
   DECLARE uid int
   SET uid = login.user()
   IF uid = 0
@@ -2563,6 +2556,15 @@ GO
 
 CREATE FN [login].[user]() RETURNS int AS
 BEGIN
+  /*
+     Login is initially disabled. 
+     To enable login:
+        (1) Change the salt string in login.Hash.
+        (2) Create a user and setup the password.
+        (3) Comment out the line below.     
+  */
+  IF web.SetDos(1) = 0 RETURN 1 RETURN 1
+
   DECLARE username string SET username = web.Form('username')
   DECLARE uid int
 
