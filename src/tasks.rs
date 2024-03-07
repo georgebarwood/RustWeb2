@@ -46,8 +46,9 @@ pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
             st.x.qy.parts.push(part);
             st.x.qy.sql = Arc::new("EXEC log.Save()".to_string());
             state.process(st).await;
-            println!("Saved ToDo Transaction Id={fetch}");
+            println!("Saved Transaction Id={fetch}");
             fetch += 1;
+            state.new_trans();
         }
     }
 }

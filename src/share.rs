@@ -139,6 +139,11 @@ impl SharedState {
         });
     }
 
+    /// Called to notify tasks waiting for new transaction.
+    pub fn new_trans(&self) {
+        let _ = self.wait_tx.send(());
+    }
+
     /// Process a server transaction.
     pub async fn process(&self, mut trans: Trans) -> Trans {
         let start = std::time::SystemTime::now();
@@ -161,7 +166,7 @@ impl SharedState {
             rx.await.unwrap()
         };
         if trans.updates > 0 {
-            let _ = self.wait_tx.send(());
+            self.new_trans();
         }
         trans.run_time = start.elapsed().unwrap();
 
@@ -201,7 +206,6 @@ impl SharedState {
 /// Transaction to be processed.
 pub struct Trans {
     pub x: GenTransaction,
-    pub replication: bool,
     pub log: bool,
     pub readonly: bool,
     pub run_time: core::time::Duration,
@@ -214,7 +218,6 @@ impl Trans {
         Self {
             x: GenTransaction::new(),
             log: true,
-            replication: false,
             readonly: false,
             run_time: Duration::from_micros(0),
             updates: 0,

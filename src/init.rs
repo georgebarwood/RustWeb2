@@ -3129,9 +3129,9 @@ GO
 CREATE FN [log].[InitReplication]() AS 
 BEGIN
   -- Called from Rust tasks::sync_loop 
-  SELECT NOLOG()
-  DELETE FROM log.Status WHERE true
-  INSERT INTO log.Status(Done) VALUES ( log.NextTransaction() )
+  DECLARE ok int
+  SET ok = Done FROM log.Status
+  IF ok = 0 INSERT INTO log.Status(Done) VALUES ( log.NextTransaction() )
 END
 GO
 

@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap as HashMap;
 use rustdb::{
     AccessPagedData, AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
-    SharedPagedData, SimpleFileStorage, Value,
+    SharedPagedData, SimpleFileStorage, Value, DB,
 };
 
 use std::{
@@ -119,17 +119,10 @@ fn main_inner() {
             while let Some(mut sm) = update_rx.blocking_recv() {
                 let sql = sm.trans.x.qy.sql.clone();
                 db.run(&sql, &mut sm.trans.x);
-                if !sm.trans.no_log() && (sm.trans.replication || (sm.trans.log && db.changed())) {
-                    if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
-                        // Append compressed, serialised transaction to log.Transaction table
-                        let ser = bincode::serialize(&sm.trans.x.qy).unwrap();
-                        let ser = flate3::deflate(&ser);
-                        let ser = Value::RcBinary(Rc::new(ser));
-                        let mut row = t.row();
-                        row.id = t.alloc_id(&db);
-                        row.values[0] = ser;
-                        t.insert(&db, &mut row);
-                    }
+                if is_master && !sm.trans.no_log() && db.changed() {
+                    let ser = bincode::serialize(&sm.trans.x.qy).unwrap();
+                    let ser = flate3::deflate(&ser);
+                    save_transaction(&db, ser);
                 }
                 sm.trans.updates = db.save();
                 let _x = sm.reply.send(sm.trans);
@@ -166,6 +159,17 @@ fn main_inner() {
     });
     // Make sure outstanding writes are flushed to secondary storage.
     spdc.wait_complete();
+}
+
+fn save_transaction(db: &DB, bytes: Vec<u8>) {
+    if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
+        // Append compressed, serialised transaction to log.Transaction table.
+        let ser = Value::RcBinary(Rc::new(bytes));
+        let mut row = t.row();
+        row.id = t.alloc_id(db);
+        row.values[0] = ser;
+        t.insert(db, &mut row);
+    }
 }
 
 #[cfg(unix)]
