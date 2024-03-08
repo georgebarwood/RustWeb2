@@ -32,7 +32,7 @@ fn main_inner() {
     limits.swbuf = args.swbuf;
     limits.uwbuf = args.uwbuf;
 
-    // Construct an AtomicFile. This ensures that updates to the database are "all or nothing".
+    // Construct BlockPageStg.
     let file = MultiFileStorage::new("rustweb.rustdb");
     let upd = SimpleFileStorage::new("rustweb.upd");
     let stg = AtomicFile::new_with_limits(file, upd, &limits);
@@ -43,10 +43,8 @@ fn main_inner() {
     let spd = SharedPagedData::new_from_ps(ps);
     let spdc = spd.clone();
 
-    {
-        let mut s = spd.stash.lock().unwrap();
-        s.mem_limit = args.mem << 20;
-    }
+    // Set the stash memory limit.
+    spd.stash.lock().unwrap().mem_limit = args.mem << 20;
 
     let bmap = Arc::new(builtins::get_bmap());
 
@@ -103,9 +101,11 @@ fn main_inner() {
 
         // Start the task that updates the database.
         std::thread::spawn(move || {
-            // Get write-access to database ( there will only be one of these ).
+            // Get write-access to database ( there will only be one writer ).
             let wapd = AccessPagedData::new_writer(spd);
             let db = Database::new(wapd, "", bmap);
+
+            // If database is new master, initialise it.
             if db.is_new && is_master {
                 let f = std::fs::read_to_string("admin-ScriptAll.txt");
                 let init = if let Ok(f) = &f { f } else { init::INITSQL };
@@ -113,15 +113,18 @@ fn main_inner() {
                 db.run(init, &mut tr);
                 db.save();
             }
+
+            // Let sync task know whether database is new.
             if !is_master {
                 let _ = sync_tx.send(db.is_new);
             }
+
+            // Process messages that update the database.
             while let Some(mut sm) = update_rx.blocking_recv() {
                 let sql = sm.trans.x.qy.sql.clone();
                 db.run(&sql, &mut sm.trans.x);
                 if is_master && !sm.trans.no_log() && db.changed() {
                     let ser = bincode::serialize(&sm.trans.x.qy).unwrap();
-                    let ser = flate3::deflate(&ser);
                     save_transaction(&db, ser);
                 }
                 sm.trans.updates = db.save();
@@ -157,17 +160,18 @@ fn main_inner() {
             }
         }
     });
-    // Make sure outstanding writes are flushed to secondary storage.
+    // Wait until any outstanding writes are flushed to secondary storage.
     spdc.wait_complete();
 }
 
+/// Append compressed, serialised transaction to log.Transaction table.
 fn save_transaction(db: &DB, bytes: Vec<u8>) {
     if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
-        // Append compressed, serialised transaction to log.Transaction table.
-        let ser = Value::RcBinary(Rc::new(bytes));
+        let bytes = flate3::deflate(&bytes);
+        let bytes = Value::RcBinary(Rc::new(bytes));
         let mut row = t.row();
         row.id = t.alloc_id(db);
-        row.values[0] = ser;
+        row.values[0] = bytes;
         t.insert(db, &mut row);
     }
 }
@@ -203,7 +207,7 @@ static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use clap::Parser;
 
 /// Command line arguments.
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Port to listen on
