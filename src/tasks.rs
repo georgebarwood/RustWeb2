@@ -1,7 +1,7 @@
 use crate::share::{SharedState, Trans};
 use rustdb::{AccessPagedData, Database, Part};
 use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 
 /// Task for calling u_decay every 10 seconds.
 pub async fn u_decay_loop(ss: Arc<SharedState>) {
@@ -12,9 +12,8 @@ pub async fn u_decay_loop(ss: Arc<SharedState>) {
 }
 
 /// Task for syncing with master database
-pub async fn sync_loop(rx: oneshot::Receiver<bool>, state: Arc<SharedState>) {
-    let db_is_new = rx.await.unwrap();
-    if db_is_new {
+pub async fn sync_loop(is_new: bool, state: Arc<SharedState>) {
+    if is_new {
         let sql = rget(state.clone(), "/log-getall").await;
         let sql = std::str::from_utf8(&sql).unwrap().to_string();
         let mut st = Trans::new();

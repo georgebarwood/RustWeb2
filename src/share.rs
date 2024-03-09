@@ -147,7 +147,6 @@ impl SharedState {
     /// Process a server transaction.
     pub async fn process(&self, mut trans: Trans) -> Trans {
         let start = std::time::SystemTime::now();
-        let mut wait_rx = self.wait_tx.subscribe();
         let mut trans = if trans.readonly {
             // Readonly request, use read-only copy of database.
             let spd = self.spd.clone();
@@ -182,6 +181,7 @@ impl SharedState {
                 }
             }
             if ext.trans_wait {
+                let mut wait_rx = self.wait_tx.subscribe();
                 tokio::select! {
                    _ = wait_rx.recv() => {}
                    _ = tokio::time::sleep(Duration::from_secs(600)) => {}

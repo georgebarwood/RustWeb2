@@ -1,22 +1,23 @@
 use rustc_hash::FxHashMap as HashMap;
 use rustdb::{
     AccessPagedData, AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
-    SharedPagedData, SimpleFileStorage, Value, DB,
+    PageStorage, SharedPagedData, SimpleFileStorage, Value, DB,
 };
 
 use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc};
 
-/// Program entry point - construct shared state, start async tasks, process requests.
+/// Program entry point.
 fn main() {
     main_inner();
     std::thread::sleep(std::time::Duration::from_millis(10));
     println!("Server stopped");
 }
 
+/// Read args, construct shared state, start async tasks, process requests
 fn main_inner() {
     // Read program arguments.
     let args = Args::parse();
@@ -37,6 +38,7 @@ fn main_inner() {
     let upd = SimpleFileStorage::new("rustweb.upd");
     let stg = AtomicFile::new_with_limits(file, upd, &limits);
     let ps = BlockPageStg::new(stg, &limits);
+    let is_new = ps.is_new();
 
     // SharedPagedData allows for one writer and multiple readers.
     // Note that readers never have to wait, they get a "virtual" read-only copy of the database.
@@ -52,7 +54,6 @@ fn main_inner() {
     let (update_tx, mut update_rx) = mpsc::channel::<share::UpdateMessage>(1);
     let (email_tx, email_rx) = mpsc::unbounded_channel::<()>();
     let (sleep_tx, sleep_rx) = mpsc::unbounded_channel::<u64>();
-    let (sync_tx, sync_rx) = oneshot::channel::<bool>();
     let (wait_tx, _wait_rx) = broadcast::channel::<()>(16);
 
     // Construct shared state.
@@ -92,7 +93,7 @@ fn main_inner() {
         } else {
             // Start the database replication task.
             let ssc = ss.clone();
-            tokio::spawn(async move { tasks::sync_loop(sync_rx, ssc).await });
+            tokio::spawn(async move { tasks::sync_loop(is_new, ssc).await });
         }
 
         // Start the task that regularly decreases usage values.
@@ -106,17 +107,12 @@ fn main_inner() {
             let db = Database::new(wapd, "", bmap);
 
             // If database is new master, initialise it.
-            if db.is_new && is_master {
+            if is_new && is_master {
                 let f = std::fs::read_to_string("admin-ScriptAll.txt");
                 let init = if let Ok(f) = &f { f } else { init::INITSQL };
                 let mut tr = rustdb::GenTransaction::default();
                 db.run(init, &mut tr);
                 db.save();
-            }
-
-            // Let sync task know whether database is new.
-            if !is_master {
-                let _ = sync_tx.send(db.is_new);
             }
 
             // Process messages that update the database.
