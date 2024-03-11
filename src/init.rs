@@ -3156,6 +3156,7 @@ BEGIN
   BEGIN
     SET d = data FROM log.Transaction WHERE Id = a
     SET dummy = DOLOG(d)
+    EXECUTE( 'GO' )
     SET a = a + 1
   END
   UPDATE log.Status SET Done = a WHERE true

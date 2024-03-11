@@ -65,7 +65,7 @@ pub const U_CPU: usize = 2;
 pub const U_WRITE: usize = 3;
 
 /// Information kept on usage for each user.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct UseInfo {
     /// Running totals of amount of CPU/IO etc. used.
     pub used: UA,
@@ -73,14 +73,28 @@ pub struct UseInfo {
     pub limit: UA,
 }
 
+impl UseInfo {
+    fn new(limit: &UA) -> Self {
+        Self {
+            used: [0, 0, 0, 0],
+            limit: *limit,
+        }
+    }
+}
+
+impl Default for UseInfo {
+    fn default() -> Self {
+        Self::new(&[0, 0, 0, 0])
+    }
+}
+
 impl SharedState {
     /// Get the usage budget for specified user ( difference between limit and usage ).
     pub fn u_budget(&self, uid: String) -> UA {
         let mut m = self.dos.lock().unwrap();
-        let info = m.entry(uid).or_default();
-        if info.limit[0] == 0 {
-            info.limit = self.dos_limit;
-        }
+        let info = m
+            .entry(uid)
+            .or_insert_with(|| UseInfo::new(&self.dos_limit));
         let mut result = [0; 4];
         for (i, item) in result.iter_mut().enumerate() {
             if info.used[i] >= info.limit[i] {

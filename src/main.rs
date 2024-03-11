@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::sync::{broadcast, mpsc};
 
-/// Program entry point.
+/// Program entry point
 fn main() {
     main_inner();
     std::thread::sleep(std::time::Duration::from_millis(10));
@@ -91,9 +91,9 @@ fn main_inner() {
             let ssc = ss.clone();
             tokio::spawn(async move { tasks::sleep_loop(sleep_rx, ssc).await });
         } else {
-            // Start the database replication task.
+            // Start the database backup task.
             let ssc = ss.clone();
-            tokio::spawn(async move { tasks::sync_loop(is_new, ssc).await });
+            tokio::spawn(async move { tasks::backup_loop(is_new, ssc).await });
         }
 
         // Start the task that regularly decreases usage values.
@@ -160,7 +160,7 @@ fn main_inner() {
     spdc.wait_complete();
 }
 
-/// Append compressed, serialised transaction to log.Transaction table.
+/// Append compressed, serialised transaction to log.Transaction table
 fn save_transaction(db: &DB, bytes: Vec<u8>) {
     if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
         let bytes = flate3::deflate(&bytes);
@@ -173,6 +173,7 @@ fn save_transaction(db: &DB, bytes: Vec<u8>) {
 }
 
 #[cfg(unix)]
+/// Wait for termination signal
 async fn term() {
     let _ = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .unwrap()
@@ -181,19 +182,20 @@ async fn term() {
 }
 
 #[cfg(windows)]
+/// Wait for termination signal
 async fn term() {
     let _ = tokio::signal::windows::ctrl_c().unwrap().recv().await;
 }
 
-/// Extra SQL builtin functions.
+/// Extra SQL builtin functions
 mod builtins;
-/// SQL initialisation string.
+/// SQL initialisation string
 mod init;
-/// http request processing.
+/// http request processing
 mod request;
-/// Shared data structures.
+/// Shared data structures
 mod share;
-/// Tasks for email, sync etc.
+/// Tasks for email, backup etc
 mod tasks;
 
 /// Memory allocator ( MiMalloc ).

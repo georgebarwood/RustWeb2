@@ -3,7 +3,7 @@ use rustdb::{AccessPagedData, Database, Part};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-/// Task for calling u_decay every 10 seconds.
+/// Task that calls u_decay every 10 seconds
 pub async fn u_decay_loop(ss: Arc<SharedState>) {
     loop {
         tokio::time::sleep(core::time::Duration::from_secs(10)).await;
@@ -11,8 +11,8 @@ pub async fn u_decay_loop(ss: Arc<SharedState>) {
     }
 }
 
-/// Task for syncing with master database
-pub async fn sync_loop(is_new: bool, state: Arc<SharedState>) {
+/// Task for backing up master database
+pub async fn backup_loop(is_new: bool, state: Arc<SharedState>) {
     if is_new {
         let sql = rget(state.clone(), "/log-getall").await;
         let sql = std::str::from_utf8(&sql).unwrap().to_string();
@@ -52,7 +52,7 @@ pub async fn sync_loop(is_new: bool, state: Arc<SharedState>) {
     }
 }
 
-/// Sleep function that checks real time elapsed.
+/// Sleep function that checks real time elapsed
 async fn sleep_real(secs: u64) {
     let start = std::time::SystemTime::now();
     for _ in (0..secs).step_by(10) {
@@ -70,7 +70,7 @@ async fn sleep_real(secs: u64) {
     }
 }
 
-/// Get data from master server, retries in case of error.
+/// Get data from master server, retries in case of error
 async fn rget(state: Arc<SharedState>, query: &str) -> Vec<u8> {
     // get a client builder
     let client = reqwest::Client::builder()
@@ -118,7 +118,7 @@ async fn rget(state: Arc<SharedState>, query: &str) -> Vec<u8> {
     }
 }
 
-/// Task for sleeping - calls timed.Run once sleep time has elapsed.
+/// Task for sleeping - calls timed.Run once sleep time has elapsed
 pub async fn sleep_loop(mut rx: mpsc::UnboundedReceiver<u64>, state: Arc<SharedState>) {
     let mut sleep_micro = 5000000;
     loop {
@@ -137,7 +137,7 @@ pub async fn sleep_loop(mut rx: mpsc::UnboundedReceiver<u64>, state: Arc<SharedS
     }
 }
 
-/// task that sends emails
+/// Task that sends emails
 pub async fn email_loop(mut rx: mpsc::UnboundedReceiver<()>, state: Arc<SharedState>) {
     loop {
         let mut send_list = Vec::new();
@@ -228,7 +228,7 @@ impl From<lettre::transport::smtp::Error> for EmailError {
     }
 }
 
-/// Send an email using lettre.
+/// Send an email using lettre
 fn send_email(
     (from, to, title, body, format): (String, String, String, String, i64),
     (server, username, password): (String, String, String),
@@ -267,14 +267,14 @@ fn send_email(
     Ok(())
 }
 
-/// Update the database to reflect an email was sent.
+/// Update the database to reflect an email was sent
 async fn email_sent(state: &SharedState, msg: u64) {
     let mut st = Trans::new();
     st.x.qy.sql = Arc::new(format!("EXEC email.Sent({})", msg));
     state.process(st).await;
 }
 
-/// Update the database to reflect an error occurred sending an email.
+/// Update the database to reflect an error occurred sending an email
 async fn email_error(state: &SharedState, msg: u64, retry: i8, err: String) {
     let mut st = Trans::new();
     let src = format!("EXEC email.LogSendError({},{},'{}')", msg, retry, err);
