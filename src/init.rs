@@ -3144,22 +3144,21 @@ END
 GO
 
 CREATE FN [log].[Roll]() AS 
+() AS 
 BEGIN
-  -- This applies all updates. Updates may need to be limited or filtered in some way.
-  
-  DECLARE nt int, a int, d binary, dummy int
-  SET dummy = NOLOG()
-
+  -- This applies all updates. Updates may need to be limited or filtered in some way.  
+  DECLARE nt int, a int, d binary
   SET nt = log.NextTransaction()
   SET a = Done FROM log.Status
   WHILE a < nt
   BEGIN
-    SET d = data FROM log.Transaction WHERE Id = a
-    SET dummy = DOLOG(d)
-    EXECUTE( 'GO' )
-    SET a = a + 1
+    SET d = BINUNPACK(data) FROM log.Transaction WHERE Id = a
+    SET a += 1
+    IF DOLOG(d) = 1 BREAK
   END
   UPDATE log.Status SET Done = a WHERE true
+  IF a < nt SELECT '<p>Roll incomplete ' | nt - a | ' transactions outstanding'
+  ELSE SELECT '<p>Roll complete'
 END
 GO
 

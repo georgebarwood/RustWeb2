@@ -303,7 +303,11 @@ impl CExp<i64> for DoLog {
         tr.qy = bincode::deserialize(ser.bina()).unwrap();
         let sql = tr.qy.sql.clone();
         ee.db.run(&sql, &mut tr);
-        0
+        if ee.db.function_reset.get() {
+            1
+        } else {
+            0
+        }
     }
 }
 
