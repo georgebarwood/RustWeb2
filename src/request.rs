@@ -1,6 +1,6 @@
 use crate::share::{Error, SharedState, Trans, UseInfo, U_COUNT, U_CPU, U_READ, U_WRITE};
 use rustdb::gentrans::GenQuery;
-use std::collections::BTreeMap;
+use rustdb::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
