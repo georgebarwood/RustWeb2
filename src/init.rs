@@ -252,6 +252,7 @@ BEGIN
   IF sname != 'sys'
   BEGIN
     SELECT '
+--############################################
 CREATE SCHEMA ' | sys.QuoteName( sname ) | '
 GO
 '
@@ -346,6 +347,7 @@ BEGIN
 END
 GO
 
+--############################################
 CREATE SCHEMA [date]
 GO
 
@@ -767,6 +769,7 @@ BEGIN
 END
 GO
 
+--############################################
 CREATE SCHEMA [web]
 GO
 
@@ -959,6 +962,7 @@ INSERT INTO [web].[File](Id,[Path],[ContentType],[Content]) VALUES
 (16,'/favicon.ico','image/x-icon',0x00000100010010100000010020002804000016000000280000001000000020000000010020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ff840008ffc60008ffbd0008ffc60008ff830000000000000000000000000000000000000000000000000000000000000000000000000000ff190009ffef0008ff620009ff38000000000009ff380008ff620009ffec0000ff150000000000000000000000000000000000000000000000000000ff160008ffc30000ff0f00000000000000000000000000000000000000000000ff120008ffc30000ff1400000000000000000000000000000000000000000009ffcb0005ff33000000000000000000000000000000000000000000000000000000000005ff370009ffc7000000000000000000000000000000000006ff5c0007ff8e0000000000000000000000000000000000000000000000000000000000000000000000000007ff910006ff580000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000008ffbd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ffbd0000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000005ff5d0007ff8b0000000000000000000000000000000000000000000000000000000000000000000000000007ff8e0006ff5a000000000000000000000000000000000009ffcd0005ff31000000000000000000000000000000000000000000000000000000000005ff350009ffc900000000000000000000000000000000000000000000ff180008ffc20000ff0b00000000000000000000000000000000000000000000ff0e0008ffc20000ff170000000000000000000000000000000000000000000000000009ff1c0008fff30008ff600005ff37000000000005ff370008ff600008fff00000ff180000000000000000000000000000000000000000000000000000000000000000000000000009ff870009ffc80008ffbf0009ffc80008ff86000000000000000000000000000000000000000000000000)
 GO
 
+--############################################
 CREATE SCHEMA [browse]
 GO
 
@@ -1261,9 +1265,10 @@ BEGIN
 
   IF n != '' 
   BEGIN
-    EXECUTE( 'CREATE TABLE' | sys.Dot(s,n) | '()' )
-    EXEC web.Redirect( '/browse-Table?s=' | s | '&n=' | n )
-    RETURN
+    SELECT 'sql=' | 'CREATE TABLE' | sys.Dot(s,n) | '()'
+    --EXECUTE( 'CREATE TABLE' | sys.Dot(s,n) | '()' )
+    --EXEC web.Redirect( '/browse-Table?s=' | s | '&n=' | n )
+    --RETURN
   END
 
   EXEC admin.Head( 'New Table' )
@@ -2357,6 +2362,7 @@ GO
 INSERT INTO [browse].[Table](Id,[NameFunction],[SelectFunction],[DefaultOrder],[Title],[Description],[Role]) VALUES 
 GO
 
+--############################################
 CREATE SCHEMA [email]
 GO
 
@@ -2507,6 +2513,7 @@ GO
 INSERT INTO [email].[SmtpAccount](Id,[server],[username],[password]) VALUES 
 GO
 
+--############################################
 CREATE SCHEMA [login]
 GO
 
@@ -2536,6 +2543,13 @@ GO
 CREATE FN [login].[get]( role int ) RETURNS int AS
 BEGIN
   /* Get the current logged in user, if none, output login form. Note: role is not yet checked */
+
+  /*
+     Login is initially disabled. Remove or comment out the line below enable Login after Login password has been setup for some user.
+     In addition, the salt string in login.Hash should be changed.
+  */
+  RETURN 1 -- Login disabled.
+
   DECLARE uid int
   SET uid = login.user()
   IF uid = 0
@@ -2550,21 +2564,12 @@ GO
 
 CREATE FN [login].[hash](s string) RETURNS binary AS
 BEGIN
-  SET result = ARGON(s,'Feb 29 2022 saltiness')
+  SET result = ARGON(s,'Sep 14 2022 saltiness')
 END
 GO
 
 CREATE FN [login].[user]() RETURNS int AS
 BEGIN
-  /*
-     Login is initially disabled. 
-     To enable login:
-        (1) Change the salt string in login.Hash.
-        (2) Create a user and setup the password.
-        (3) Comment out the line below.     
-  */
-  IF web.SetDos(1) = 0 RETURN 1 RETURN 1
-
   DECLARE username string SET username = web.Form('username')
   DECLARE uid int
 
@@ -2603,6 +2608,7 @@ GO
 INSERT INTO [login].[user](Id,[Name],[HashedPassword]) VALUES 
 GO
 
+--############################################
 CREATE SCHEMA [timed]
 GO
 
@@ -2652,6 +2658,7 @@ GO
 INSERT INTO [timed].[Job](Id,[fn],[at]) VALUES 
 GO
 
+--############################################
 CREATE SCHEMA [admin]
 GO
 
@@ -2708,7 +2715,10 @@ GO
 
 CREATE FN [admin].[/admin-EditFunc]() AS
 BEGIN
-  DECLARE cu int SET cu = login.get(1) IF cu = 0 RETURN
+  DECLARE cu int SET cu = login.get(1) IF cu = 0 
+  BEGIN
+     RETURN
+  END
 
   DECLARE s string SET s = web.Query('s')
   DECLARE n string SET n = web.Query('n')
@@ -3079,6 +3089,7 @@ BEGIN
 END
 GO
 
+--############################################
 CREATE SCHEMA [log]
 GO
 
@@ -3128,7 +3139,7 @@ GO
 
 CREATE FN [log].[InitReplication]() AS 
 BEGIN
-  -- Called from Rust tasks::sync_loop 
+  -- Called from Rust tasks::sync_loop
   DECLARE ok int
   SET ok = Done FROM log.Status
   IF ok = 0 INSERT INTO log.Status(Done) VALUES ( log.NextTransaction() )
@@ -3137,6 +3148,7 @@ GO
 
 CREATE FN [log].[NextTransaction]() RETURNS int AS 
 BEGIN
+  -- Returns Id of next log.Transaction record due to be generated.
   DECLARE s int, gen int
   SET s = Id FROM sys.Schema WHERE Name = 'log'
   SET result = IdGen FROM sys.Table WHERE Schema = s AND Name = 'Transaction'
@@ -3144,7 +3156,6 @@ END
 GO
 
 CREATE FN [log].[Roll]() AS 
-() AS 
 BEGIN
   -- This applies all updates. Updates may need to be limited or filtered in some way.  
   DECLARE nt int, a int, d binary
