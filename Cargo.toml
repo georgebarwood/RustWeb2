@@ -1,11 +1,12 @@
 [package]
 name = "rustweb2"
-version = "1.1.21"
+version = "1.1.22"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
 description = "Rust-based web server"
 repository = "https://github.com/georgebarwood/rustweb2"
+include = ["/src"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
