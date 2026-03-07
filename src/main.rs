@@ -28,15 +28,15 @@ fn main_inner() {
     limits.blk_cap = args.blk_cap;
     limits.page_sizes = args.page_sizes;
     limits.max_div = args.max_div;
-    limits.map_lim = args.map_lim;
-    limits.rbuf_mem = args.rbuf_mem;
-    limits.swbuf = args.swbuf;
-    limits.uwbuf = args.uwbuf;
+    limits.af_lim.map_lim = args.map_lim;
+    limits.af_lim.rbuf_mem = args.rbuf_mem;
+    limits.af_lim.swbuf = args.swbuf;
+    limits.af_lim.uwbuf = args.uwbuf;
 
     // Construct BlockPageStg.
     let file = MultiFileStorage::new("rustweb.rustdb");
     let upd = SimpleFileStorage::new("rustweb.upd");
-    let stg = AtomicFile::new_with_limits(file, upd, &limits);
+    let stg = AtomicFile::new_with_limits(file, upd, &limits.af_lim);
     let ps = BlockPageStg::new(stg, &limits);
     let is_new = ps.is_new();
 
