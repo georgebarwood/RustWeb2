@@ -1,6 +1,6 @@
 use rustc_hash::FxHashMap as HashMap;
 use rustdb::{
-    AccessPagedData, AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
+    AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
     PageStorage, SharedPagedData, SimpleFileStorage, Value, DB,
 };
 
@@ -103,7 +103,7 @@ fn main_inner() {
         // Start the task that updates the database.
         std::thread::spawn(move || {
             // Get write-access to database ( there will only be one writer ).
-            let wapd = AccessPagedData::new_writer(spd);
+            let wapd = spd.new_writer();
             let db = Database::new(wapd, "", bmap);
 
             // If database is new master, initialise it.

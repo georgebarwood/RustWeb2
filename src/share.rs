@@ -166,7 +166,7 @@ impl SharedState {
             let spd = self.spd.clone();
             let bmap = self.bmap.clone();
             let task = tokio::task::spawn_blocking(move || {
-                let apd = rustdb::AccessPagedData::new_reader(spd);
+                let apd = spd.new_reader();
                 let db = rustdb::Database::new(apd, "", bmap);
                 let sql = trans.x.qy.sql.clone();
                 db.run(&sql, &mut trans.x);

@@ -1,5 +1,5 @@
 use crate::share::{SharedState, Trans};
-use rustdb::{AccessPagedData, Database, Part};
+use rustdb::{Database, Part};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -143,7 +143,7 @@ pub async fn email_loop(mut rx: mpsc::UnboundedReceiver<()>, state: Arc<SharedSt
         let mut send_list = Vec::new();
         {
             let _ = rx.recv().await;
-            let apd = AccessPagedData::new_reader(state.spd.clone());
+            let apd = state.spd.new_reader();
             let db = Database::new(apd, "", state.bmap.clone());
             let qt = db.table("email", "Queue");
             let mt = db.table("email", "Msg");
