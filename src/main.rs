@@ -1,7 +1,7 @@
-use rustc_hash::FxHashMap as HashMap;
+use page_store::HashMap;
 use rustdb::{
     AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
-    PageStorage, SharedPagedData, SimpleFileStorage, Value, DB,
+    PageStorage, SharedPagedData, FastFileStorage, Value, DB,
 };
 
 use std::{
@@ -35,7 +35,7 @@ fn main_inner() {
 
     // Construct BlockPageStg.
     let file = MultiFileStorage::new("rustweb.rustdb");
-    let upd = SimpleFileStorage::new("rustweb.upd");
+    let upd = FastFileStorage::new("rustweb.upd");
     let stg = AtomicFile::new_with_limits(file, upd, &limits.af_lim);
     let ps = BlockPageStg::new(stg, &limits);
     let is_new = ps.is_new();
