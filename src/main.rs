@@ -1,4 +1,4 @@
-use page_store::HashMap;
+use rustdb::HashMap;
 use rustdb::{
     AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
     PageStorage, SharedPagedData, FastFileStorage, Value, DB,
@@ -35,6 +35,7 @@ fn main_inner() {
 
     // Construct BlockPageStg.
     let file = MultiFileStorage::new("rustweb.rustdb");
+    // let file = atom_file::AnyFileStorage::new("rustweb.rustdb");
     let upd = FastFileStorage::new("rustweb.upd");
     let stg = AtomicFile::new_with_limits(file, upd, &limits.af_lim);
     let ps = BlockPageStg::new(stg, &limits);
@@ -199,6 +200,7 @@ mod share;
 mod tasks;
 
 /// Memory allocator ( MiMalloc ).
+#[cfg(not(miri))]
 #[global_allocator]
 static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

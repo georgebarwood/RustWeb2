@@ -1,4 +1,4 @@
-use rustc_hash::FxHashMap as HashMap;
+use crate::HashMap;
 use rustdb::{GenTransaction, Transaction};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -169,6 +169,7 @@ impl SharedState {
                 let apd = spd.new_reader();
                 let db = rustdb::Database::new(apd, "", bmap);
                 let sql = trans.x.qy.sql.clone();
+                rustdb::alloc::Local::enable_bump();
                 db.run(&sql, &mut trans.x);
                 trans
             });
