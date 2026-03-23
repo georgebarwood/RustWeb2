@@ -162,6 +162,7 @@ impl SharedState {
     pub async fn process(&self, mut trans: Trans) -> Trans {
         let start = std::time::SystemTime::now();
         let mut trans = if trans.readonly {
+            // println!("Processing readonly");
             // Readonly request, use read-only copy of database.
             let spd = self.spd.clone();
             let bmap = self.bmap.clone();
@@ -169,16 +170,19 @@ impl SharedState {
                 let apd = spd.new_reader();
                 let db = rustdb::Database::new(apd, "", bmap);
                 let sql = trans.x.qy.sql.clone();
+                // println!("enabling bump");
                 rustdb::alloc::Local::enable_bump();
                 db.run(&sql, &mut trans.x);
                 trans
             });
             task.await.unwrap()
         } else {
+            // println!("Processing non-readonly");
             let (reply, rx) = oneshot::channel::<Trans>();
             let _ = self.update_tx.send(UpdateMessage { trans, reply }).await;
             rx.await.unwrap()
         };
+        // println!("Done processing");
         if trans.updates > 0 {
             self.new_trans();
         }
