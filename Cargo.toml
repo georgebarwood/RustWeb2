@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.1.30"
+version = "1.1.32"
 edition = "2021"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -15,11 +15,13 @@ default = ["mt-tokio"]
 mt-tokio = ["tokio/rt-multi-thread"]
 unsafe-optim = ["rustdb/unsafe-optim"]
 log = ["rustdb/log"]
+log-bump = ["rustdb/log-bump"]
 pstd = ["rustdb/pstd"]
+dynbox = ["rustdb/dynbox"]
 
 [dependencies]
 tokio = { version = "1.13.0", features = ["macros","signal"]}
-rustdb = { version = "6.0.0", features = ["serde"] }
+rustdb = { version = "7.0.0", features = ["serde"] }
 #rustdb = { path = "../RustDB", features = ["serde"] }
 #page-store = "1.0.0"
 #atom-file = "1.0.0"

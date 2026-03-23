@@ -32,7 +32,7 @@ Initialisation
 ==============
 A new database is initialised from the file admin-ScriptAll.txt in the current directory.
 
-If ScriptAll.txt does not exist a default initialisation is used.
+If admin-ScriptAll.txt does not exist a default initialisation is used.
 
 Database replication
 ====================
@@ -95,9 +95,15 @@ mt-tokio enables the multi-threaded tokio runtime (enabled by default).
 
 unsafe-optim enables unsafe optimisations (should not cause any problem, but programmers are fallible).
 
-For example this will install rustweb2 with unsafe optimisations enabled:
+dynbox enables allocation of CExpPtr using Local bump allocator, requires nightly toolchain.
 
-cargo install rustweb2 -F unsafe-optim
+log enables logging of various internal operations.
+
+log-bump enablles logging of bump allocation.
+
+For example 
+
+cargo +nightly install rustweb2 -F dynbox
 
 Links
 =====
