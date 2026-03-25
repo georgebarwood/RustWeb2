@@ -1,6 +1,6 @@
-use crate::share::{Error, SharedState, Trans, UseInfo, U_COUNT, U_CPU, U_READ, U_WRITE};
-use rustdb::gentrans::GenQuery;
+use crate::share::{Error, SharedState, Trans, U_COUNT, U_CPU, U_READ, U_WRITE, UseInfo};
 use rustdb::BTreeMap;
+use rustdb::gentrans::GenQuery;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -363,11 +363,11 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
             if let Some(line) = line_is(line, b"content-type") {
                 part.content_type = tos(line)?;
                 // Note: if part content-type is multipart, maybe it should be parsed.
-            } else if let Some(line) = line_is(line, b"content-disposition") {
-                if let Some((name, file_name)) = split_cd(line) {
-                    part.name = name;
-                    part.file_name = file_name;
-                }
+            } else if let Some(line) = line_is(line, b"content-disposition")
+                && let Some((name, file_name)) = split_cd(line)
+            {
+                part.name = name;
+                part.file_name = file_name;
             }
             line0.clear();
         }

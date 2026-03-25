@@ -1,7 +1,7 @@
 use rustdb::HashMap;
 use rustdb::{
-    AtomicFile, BlockPageStg, Database, Limits, MultiFileStorage, ObjRef,
-    PageStorage, SharedPagedData, FastFileStorage, Value, DB,
+    AtomicFile, BlockPageStg, DB, Database, FastFileStorage, Limits, MultiFileStorage, ObjRef,
+    PageStorage, SharedPagedData, Value,
 };
 
 use std::{

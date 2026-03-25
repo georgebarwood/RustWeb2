@@ -234,12 +234,12 @@ fn send_email(
     (server, username, password): (String, String, String),
 ) -> Result<(), EmailError> {
     use lettre::{
+        Message, SmtpTransport, Transport,
         message::SinglePart,
         transport::smtp::{
-            authentication::{Credentials, Mechanism},
             PoolConfig,
+            authentication::{Credentials, Mechanism},
         },
-        Message, SmtpTransport, Transport,
     };
 
     let body = match format {

@@ -1,7 +1,7 @@
 use crate::share::TransExt;
 use rustdb::{
-    c_int, c_value, check_types, standard_builtins, Block, BuiltinMap, CExp, CExpPtr, CompileFunc,
-    DataKind, EvalEnv, Expr, GenTransaction, Value, alloc::dbox
+    Block, BuiltinMap, CExp, CExpPtr, CompileFunc, DataKind, EvalEnv, Expr, GenTransaction, Value,
+    alloc::dbox, c_int, c_value, check_types, standard_builtins,
 };
 use std::rc::Rc;
 
@@ -303,11 +303,7 @@ impl CExp<i64> for DoLog {
         tr.qy = bincode::deserialize(ser.bina()).unwrap();
         let sql = tr.qy.sql.clone();
         ee.db.run(&sql, &mut tr);
-        if ee.db.function_reset.get() {
-            1
-        } else {
-            0
-        }
+        if ee.db.function_reset.get() { 1 } else { 0 }
     }
 }
 
