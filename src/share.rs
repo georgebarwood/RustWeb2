@@ -167,11 +167,10 @@ impl SharedState {
             let spd = self.spd.clone();
             let bmap = self.bmap.clone();
             let task = tokio::task::spawn_blocking(move || {
+                rustdb::alloc::Local::enable_bump();
                 let apd = spd.new_reader();
                 let db = rustdb::Database::new(apd, "", bmap);
                 let sql = trans.x.qy.sql.clone();
-                // println!("enabling bump");
-                rustdb::alloc::Local::enable_bump();
                 db.run(&sql, &mut trans.x);
                 trans
             });

@@ -28,7 +28,7 @@ pub async fn process(
     let (hdrs, outp) = {
         let mut t = Trans::new_with_state(ss.clone(), r.uid.clone());
         let readonly =
-            h.method == b"GET" && h.args.contains_key("save") || h.args.contains_key("readonly");
+            h.method == b"GET" && !h.args.contains_key("save") || h.args.contains_key("readonly");
 
         t.x.qy.path = h.path;
         t.x.qy.params = h.args;
