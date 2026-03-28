@@ -36,7 +36,7 @@ pub fn get_bmap() -> BuiltinMap {
         ("DOLOG", DataKind::Int, CompileFunc::Int(c_dolog)),
     ];
     for (name, typ, cf) in list {
-        bmap.insert(name.to_string(), (typ, cf));
+        bmap.insert(Box::from(name), (typ, cf));
     }
     bmap
 }
