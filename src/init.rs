@@ -1514,7 +1514,7 @@ BEGIN
     DECLARE inp string
     SET inp = CASE WHEN inf = '' 
         THEN browse.Sql( 3, colId, browse.GetDatatype(type,colId) )
-        ELSE 'browse.Label(' | colId | ') | ' | inf | '(' | colId | ',' | default | ')'
+        ELSE inf | '(' | colId | ',' | default | ')'
         END
 
     IF inp != '' 
@@ -1540,7 +1540,7 @@ BEGIN
     DECLARE inp string
     SET inp = CASE WHEN inf = '' 
         THEN browse.Sql( 4, colId, browse.GetDatatype(type,colId) )
-        ELSE 'browse.Label(' | colId | ') | ' | inf | '(' | colId | ',' | sys.QuoteName(col) | ')'
+        ELSE inf | '(' | colId | ',' | sys.QuoteName(col) | ')'
         END
 
     IF inp != ''
