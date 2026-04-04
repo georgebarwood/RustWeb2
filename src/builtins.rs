@@ -1,7 +1,7 @@
 use crate::share::TransExt;
 use rustdb::{
     Block, BuiltinMap, CExp, CExpPtr, CompileFunc, DataKind, EvalEnv, Expr, GenTransaction, Value,
-    alloc::dbox, c_int, c_value, check_types, standard_builtins,
+    alloc::DBox, c_int, c_value, check_types, standard_builtins,
 };
 use std::rc::Rc;
 
@@ -46,7 +46,7 @@ fn c_argon(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
     check_types(b, args, &[DataKind::String, DataKind::String]);
     let password = c_value(b, &mut args[0]);
     let salt = c_value(b, &mut args[1]);
-    dbox(Argon { password, salt })
+    DBox::auto(Argon { password, salt })
 }
 
 /// Compiled call to ARGON.
@@ -68,7 +68,7 @@ impl CExp<Value> for Argon {
 fn c_sleep(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[DataKind::Int]);
     let to = c_int(b, &mut args[0]);
-    dbox(Sleep { to })
+    DBox::auto(Sleep { to })
 }
 
 /// Compiled call to SLEEP
@@ -105,7 +105,7 @@ fn c_setdos(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     for i in 0..4 {
         to.push(c_int(b, &mut args[i + 1]));
     }
-    dbox(SetDos { uid, to })
+    DBox::auto(SetDos { uid, to })
 }
 
 /// Compiled call to SETDOS
@@ -136,7 +136,7 @@ impl CExp<i64> for SetDos {
 /// Compile call to EMAILTX.
 fn c_email_tx(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
-    dbox(EmailTx {})
+    DBox::auto(EmailTx {})
 }
 
 /// Compiled call to EMAILTX
@@ -155,7 +155,7 @@ impl CExp<i64> for EmailTx {
 /// Compile call to TRANSWAIT.
 fn c_trans_wait(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
-    dbox(TransWait {})
+    DBox::auto(TransWait {})
 }
 
 /// Compiled call to TRANSWAIT
@@ -174,7 +174,7 @@ impl CExp<i64> for TransWait {
 /// Compile call to TRANSFLUSH.
 fn c_trans_flush(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
-    dbox(TransFlush {})
+    DBox::auto(TransFlush {})
 }
 
 /// Compiled call to TRANSFLUSH
@@ -193,7 +193,7 @@ impl CExp<i64> for TransFlush {
 /// Compile call to TOPDF
 fn c_topdf(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
-    dbox(ToPdf {})
+    DBox::auto(ToPdf {})
 }
 
 /// Compiled call to TOPDF
@@ -213,7 +213,7 @@ impl CExp<i64> for ToPdf {
 fn c_binpack(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
     check_types(b, args, &[DataKind::Binary]);
     let bytes = c_value(b, &mut args[0]);
-    dbox(Binpack { bytes })
+    DBox::auto(Binpack { bytes })
 }
 /// Compiled call to BINPACK.
 struct Binpack {
@@ -231,7 +231,7 @@ impl CExp<Value> for Binpack {
 fn c_binunpack(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
     check_types(b, args, &[DataKind::Binary]);
     let bytes = c_value(b, &mut args[0]);
-    dbox(Binunpack { bytes })
+    DBox::auto(Binunpack { bytes })
 }
 /// Compiled call to BINUNPACK.
 struct Binunpack {
@@ -249,7 +249,7 @@ impl CExp<Value> for Binunpack {
 fn c_setmem(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[DataKind::Int]);
     let to = c_int(b, &mut args[0]);
-    dbox(SetMem { to })
+    DBox::auto(SetMem { to })
 }
 
 /// Compiled call to SETMEM
@@ -268,7 +268,7 @@ impl CExp<i64> for SetMem {
 fn c_deserialise(b: &Block, args: &mut [Expr]) -> CExpPtr<Value> {
     check_types(b, args, &[DataKind::Binary]);
     let ser = c_value(b, &mut args[0]);
-    dbox(Deserialise { ser })
+    DBox::auto(Deserialise { ser })
 }
 
 /// Compiled call to DESERIALISE
@@ -289,7 +289,7 @@ impl CExp<Value> for Deserialise {
 fn c_dolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[DataKind::Binary]);
     let ser = c_value(b, &mut args[0]);
-    dbox(DoLog { ser })
+    DBox::auto(DoLog { ser })
 }
 
 /// Compiled call to DOLOG
@@ -310,7 +310,7 @@ impl CExp<i64> for DoLog {
 /// Compile call to NOLOG.
 fn c_nolog(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[]);
-    dbox(NoLog {})
+    DBox::auto(NoLog {})
 }
 
 /// Compiled call to NOLOG
@@ -330,7 +330,7 @@ impl CExp<i64> for NoLog {
 fn c_adler(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
     check_types(b, args, &[DataKind::Binary]);
     let bytes = c_value(b, &mut args[0]);
-    dbox(Adler { bytes })
+    DBox::auto(Adler { bytes })
 }
 
 /// Compiled call to ADLER
