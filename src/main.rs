@@ -10,6 +10,13 @@ use std::{
 };
 use tokio::sync::{broadcast, mpsc};
 
+//#[cfg(not(miri))]
+//#[global_allocator]
+//static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: rustdb::alloc::Perm = rustdb::alloc::Perm;
+
 /// Program entry point
 fn main() {
     main_inner();
@@ -198,11 +205,6 @@ mod request;
 mod share;
 /// Tasks for email, backup etc
 mod tasks;
-
-/// Memory allocator ( MiMalloc ).
-#[cfg(not(miri))]
-#[global_allocator]
-static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use clap::Parser;
 

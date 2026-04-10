@@ -1,6 +1,7 @@
 use crate::share::{Error, SharedState, Trans, U_COUNT, U_CPU, U_READ, U_WRITE, UseInfo};
 use rustdb::BTreeMap;
 use rustdb::gentrans::GenQuery;
+use rustdb::alloc::Perm;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -75,14 +76,15 @@ pub async fn process(
             if ss.tracemem {
                 let s = ss.spd.stash.lock().unwrap();
                 println!(
-                    "stash limit={}K used={}K free={}K pages={} cached={} read={} misses={}",
+                    "stash limit={}K used={}K free={}K pages={} cached={} read={} misses={} allocs={}",
                     s.mem_limit / 1024,
                     s.total / 1024,
                     (s.mem_limit as i64 - s.total) / 1024,
                     s.pages.len(),
                     s.cached(),
                     s.read,
-                    s.miss
+                    s.miss,
+                    Perm::alloc_count()
                 );
             }
         }
