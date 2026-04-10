@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.1.38"
+version = "1.1.39"
 edition = "2024"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -23,6 +23,8 @@ dynbox = ["rustdb/dynbox"]
 tokio = { version = "1.13.0", features = ["macros","signal"]}
 rustdb = { version = "7.0.0", features = ["serde"] }
 #rustdb = { path = "../RustDB", features = ["serde"] }
+pstd = "1.0.101"
+#pstd = { path = "../pstd" }
 
 mime = "0.3.16"
 serde_urlencoded = "0.7.1"
@@ -38,5 +40,6 @@ lettre = { version = "0.11.1" }
 flate3 = "1.0.0"
 argon2rs = "0.2.5"
 pdf-min = "0.1.2"
+
 
 #console-subscriber = { path = "../console-main/console-subscriber" }
