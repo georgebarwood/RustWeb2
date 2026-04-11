@@ -1,4 +1,5 @@
 use crate::share::TransExt;
+use rustdb::alloc::{LRc, LString};
 use rustdb::{
     Block, BuiltinMap, CExp, CExpPtr, CompileFunc, DataKind, EvalEnv, Expr, GenTransaction, Value,
     alloc::dbox, c_int, c_value, check_types, standard_builtins,
@@ -281,7 +282,7 @@ impl CExp<Value> for Deserialise {
         let ser = self.ser.eval(ee, d);
         let qy: rustdb::gentrans::GenQuery = bincode::deserialize(ser.bina()).unwrap();
         let s = serde_json::to_string(&qy).unwrap();
-        Value::String(Rc::new(s))
+        Value::String(LRc::new(LString::from_str(&s)))
     }
 }
 
