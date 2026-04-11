@@ -1,10 +1,9 @@
 use crate::share::TransExt;
-use rustdb::alloc::{LRc, LString};
+use rustdb::alloc::{LRc, LString, LVec};
 use rustdb::{
     Block, BuiltinMap, CExp, CExpPtr, CompileFunc, DataKind, EvalEnv, Expr, GenTransaction, Value,
     alloc::dbox, c_int, c_value, check_types, standard_builtins,
 };
-use std::rc::Rc;
 
 /// Get BuiltinMap
 pub fn get_bmap() -> BuiltinMap {
@@ -60,8 +59,10 @@ impl CExp<Value> for Argon {
         let pw = self.password.eval(ee, d).str();
         let salt = self.salt.eval(ee, d).str();
 
-        let result = argon2rs::argon2i_simple(&pw, &salt).to_vec();
-        Value::RcBinary(Rc::new(result))
+        let a2 = argon2rs::argon2i_simple(&pw, &salt).to_vec();
+        let mut result = LVec::new();
+        result.extend_from_slice(&a2);
+        Value::RcBinary(LRc::new(result))
     }
 }
 
@@ -225,7 +226,9 @@ impl CExp<Value> for Binpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         let data = self.bytes.eval(ee, d);
         let cb: Vec<u8> = flate3::deflate(data.bina());
-        Value::RcBinary(Rc::new(cb))
+        let mut v = LVec::new();
+        v.extend_from_slice( &cb );
+        Value::RcBinary(LRc::new(v))
     }
 }
 /// Compile call to BINUNPACK.
@@ -242,7 +245,9 @@ impl CExp<Value> for Binunpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         let data = self.bytes.eval(ee, d);
         let ucb: Vec<u8> = flate3::inflate(data.bina());
-        Value::RcBinary(Rc::new(ucb))
+        let mut v = LVec::new();
+        v.extend_from_slice( &ucb );
+        Value::RcBinary(LRc::new(v))
     }
 }
 

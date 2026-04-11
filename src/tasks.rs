@@ -233,6 +233,7 @@ fn send_email(
     (from, to, title, body, format): (String, String, String, String, i64),
     (server, username, password): (String, String, String),
 ) -> Result<(), EmailError> {
+
     use lettre::{
         Message, SmtpTransport, Transport,
         message::SinglePart,

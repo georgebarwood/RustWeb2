@@ -1,11 +1,10 @@
 use rustdb::HashMap;
 use rustdb::{
     AtomicFile, BlockPageStg, DB, Database, FastFileStorage, Limits, MultiFileStorage, ObjRef,
-    PageStorage, SharedPagedData, Value,
+    PageStorage, SharedPagedData, Value, alloc::{LVec, LRc},
 };
 
 use std::{
-    rc::Rc,
     sync::{Arc, Mutex},
 };
 use tokio::sync::{broadcast, mpsc};
@@ -172,7 +171,9 @@ fn main_inner() {
 fn save_transaction(db: &DB, bytes: Vec<u8>) {
     if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
         let bytes = flate3::deflate(&bytes);
-        let bytes = Value::RcBinary(Rc::new(bytes));
+        let mut v = LVec::new();
+        v.extend_from_slice(&bytes);
+        let bytes = Value::RcBinary(LRc::new(v));
         let mut row = t.row();
         row.id = t.alloc_id(db);
         row.values[0] = bytes;
