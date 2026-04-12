@@ -265,7 +265,7 @@ struct SetMem {
 impl CExp<i64> for SetMem {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
         let to = self.to.eval(ee, d) as usize;
-        ee.db.0.apd.spd.stash.lock().unwrap().mem_limit = to * 1024 * 1024;
+        ee.db.set_stash_mem_limit( to * 1024 * 1024 );
         0
     }
 }
@@ -309,7 +309,7 @@ impl CExp<i64> for DoLog {
         tr.qy = bincode::deserialize(ser.bina()).unwrap();
         let sql = tr.qy.sql.clone();
         ee.db.run(&sql, &mut tr);
-        if ee.db.0.function_reset.get() { 1 } else { 0 }
+        if ee.db.function_update() { 1 } else { 0 }
     }
 }
 
