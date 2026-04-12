@@ -86,6 +86,7 @@ pub async fn process(
                     s.miss,
                     Perm::alloc_count()
                 );
+                println!( "Perm::info = {:?}", Perm::info() );
             }
         }
         (header(&t), t.x.rp.output)
