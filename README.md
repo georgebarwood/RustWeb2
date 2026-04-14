@@ -95,15 +95,9 @@ mt-tokio enables the multi-threaded tokio runtime (enabled by default).
 
 unsafe-optim enables unsafe optimisations (should not cause any problem, but programmers are fallible).
 
-dynbox enables allocation of CExpPtr using Local bump allocator, requires nightly toolchain.
-
 log enables logging of various internal operations.
 
 log-bump enablles logging of bump allocation.
-
-For example 
-
-cargo +nightly install rustweb2 -F dynbox
 
 Links
 =====
