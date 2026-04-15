@@ -2,7 +2,7 @@ use crate::share::TransExt;
 use rustdb::alloc::{LBox, LRc, LString, LVec};
 use rustdb::{
     Block, BuiltinMap, CExp, CExpPtr, CompileFunc, DataKind, EvalEnv, Expr, GenTransaction, Value,
-    lbox, c_int, c_value, check_types, standard_builtins,
+    c_int, c_value, check_types, lbox, standard_builtins,
 };
 
 /// Get BuiltinMap
@@ -227,7 +227,7 @@ impl CExp<Value> for Binpack {
         let data = self.bytes.eval(ee, d);
         let cb: Vec<u8> = flate3::deflate(data.bina());
         let mut v = LVec::new();
-        v.extend_from_slice( &cb );
+        v.extend_from_slice(&cb);
         Value::RcBinary(LRc::new(v))
     }
 }
@@ -246,7 +246,7 @@ impl CExp<Value> for Binunpack {
         let data = self.bytes.eval(ee, d);
         let ucb: Vec<u8> = flate3::inflate(data.bina());
         let mut v = LVec::new();
-        v.extend_from_slice( &ucb );
+        v.extend_from_slice(&ucb);
         Value::RcBinary(LRc::new(v))
     }
 }
@@ -265,7 +265,7 @@ struct SetMem {
 impl CExp<i64> for SetMem {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
         let to = self.to.eval(ee, d) as usize;
-        ee.db.set_stash_mem_limit( to * 1024 * 1024 );
+        ee.db.set_stash_mem_limit(to * 1024 * 1024);
         0
     }
 }

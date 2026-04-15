@@ -1,6 +1,5 @@
 use crate::share::{Error, SharedState, Trans, U_COUNT, U_CPU, U_READ, U_WRITE, UseInfo};
-use rustdb::BTreeMap;
-use rustdb::alloc::Perm;
+use rustdb::alloc::{GBTreeMap, GString, GTemp, Perm};
 use rustdb::gentrans::GenQuery;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -86,7 +85,8 @@ pub async fn process(
                     s.miss,
                     Perm::alloc_count()
                 );
-                println!( "Perm::info = {:?}", Perm::info() );
+                println!("Perm::info = {:?}", Perm::info());
+                println!("GTemp::info = {:?}", GTemp::info());
             }
         }
         (header(&t), t.x.rp.output)
@@ -120,10 +120,10 @@ fn header(t: &Trans) -> Vec<u8> {
 #[derive(Default)]
 struct Headers {
     method: Vec<u8>,
-    path: String,
-    args: BTreeMap<String, String>,
-    host: String,
-    cookies: BTreeMap<String, String>,
+    path: GString,
+    args: GBTreeMap<GString, GString>,
+    host: GString,
+    cookies: GBTreeMap<GString, GString>,
 
     content_type: Vec<u8>,
     content_length: String,
@@ -168,7 +168,7 @@ impl Headers {
                     }
                     (b'h', b's') => {
                         if let Some(line) = line_is(line, b"host") {
-                            r.host = tos(line)?;
+                            r.host = togs(line)?;
                         }
                     }
                     (b'x', b'r') => {
@@ -201,7 +201,7 @@ impl Headers {
             }
             i += 1;
         }
-        self.path = tos(&pq[0..q])?;
+        self.path = togs(&pq[0..q])?;
         if q != n {
             q += 1;
         }
@@ -241,6 +241,10 @@ fn lower(mut b: u8) -> u8 {
     b
 }
 
+fn togs(s: &[u8]) -> Result<GString, Error> {
+    Ok(GString::from_str(std::str::from_utf8(s)?))
+}
+
 /// Convert byte slice into string.
 fn tos(s: &[u8]) -> Result<String, Error> {
     Ok(std::str::from_utf8(s)?.to_string())
@@ -262,8 +266,8 @@ fn bad() -> Error {
 }
 
 /// Parse cookie header to a map of cookies.
-fn cookie_map(s: &[u8]) -> Result<BTreeMap<String, String>, Error> {
-    let mut map = BTreeMap::new();
+fn cookie_map(s: &[u8]) -> Result<GBTreeMap<GString, GString>, Error> {
+    let mut map = GBTreeMap::new();
     let n = s.len();
     let mut i = 0;
 
@@ -275,7 +279,7 @@ fn cookie_map(s: &[u8]) -> Result<BTreeMap<String, String>, Error> {
         while i < n && s[i] != b'=' {
             i += 1;
         }
-        let name = tos(&s[start..i])?;
+        let name = togs(&s[start..i])?;
         if i < n {
             i += 1;
         }
@@ -283,7 +287,7 @@ fn cookie_map(s: &[u8]) -> Result<BTreeMap<String, String>, Error> {
         while i < n && s[i] != b';' {
             i += 1;
         }
-        let value = tos(&s[start..i])?;
+        let value = togs(&s[start..i])?;
         i += 1;
         map.insert(name, value);
     }
@@ -298,7 +302,7 @@ fn is_multipart(s: &[u8]) -> bool {
 }
 
 /// Extract name and file_name from content-disposition header.
-fn split_cd(s: &[u8]) -> Option<(String, String)> {
+fn split_cd(s: &[u8]) -> Option<(GString, GString)> {
     /* Expected input:
        form-data; name="file"; filename="logo.png"
     */
@@ -315,7 +319,7 @@ fn split_cd(s: &[u8]) -> Option<(String, String)> {
         if let Some(n) = m.get_param("filename") {
             filename = n.as_str()
         }
-        Some((name.to_string(), filename.to_string()))
+        Some((GString::from_str(name), GString::from_str(filename)))
     } else {
         None
     }
@@ -364,7 +368,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
             }
             let line = &line0[0..n - 2];
             if let Some(line) = line_is(line, b"content-type") {
-                part.content_type = tos(line)?;
+                part.content_type = togs(line)?;
                 // Note: if part content-type is multipart, maybe it should be parsed.
             } else if let Some(line) = line_is(line, b"content-disposition")
                 && let Some((name, file_name)) = split_cd(line)
@@ -388,7 +392,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
             }
         }
         if part.content_type.is_empty() {
-            let value = tos(&data)?;
+            let value = togs(&data)?;
             q.form.insert(part.name, value);
         } else {
             part.data = Arc::new(data);
