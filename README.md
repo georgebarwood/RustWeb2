@@ -97,7 +97,7 @@ unsafe-optim enables unsafe optimisations (should not cause any problem, but pro
 
 log enables logging of various internal operations.
 
-log-bump enablles logging of bump allocation.
+log-alloc enablles logging of memory allocation.
 
 Links
 =====

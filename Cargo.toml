@@ -1,6 +1,6 @@
 [package]
 name = "rustweb2"
-version = "1.1.47"
+version = "1.1.48"
 edition = "2024"
 authors = ["George Barwood"]
 license = "MIT OR Apache-2.0"
@@ -9,14 +9,6 @@ repository = "https://github.com/georgebarwood/rustweb2"
 include = ["/src"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-default = ["mt-tokio"]
-mt-tokio = ["tokio/rt-multi-thread"]
-unsafe-optim = ["rustdb/unsafe-optim"]
-log = ["rustdb/log"]
-log-bump = ["rustdb/log-bump"]
-pstd = ["rustdb/pstd"]
 
 [dependencies]
 tokio = { version = "1.13.0", features = ["macros","signal"]}
@@ -40,6 +32,12 @@ flate3 = "1.0.0"
 argon2rs = "0.2.5"
 pdf-min = "0.1.2"
 
-
-
 #console-subscriber = { path = "../console-main/console-subscriber" }
+
+[features]
+default = ["mt-tokio"]
+mt-tokio = ["tokio/rt-multi-thread"]
+unsafe-optim = ["rustdb/unsafe-optim"]
+log = ["rustdb/log"]
+log-alloc = ["rustdb/log-alloc"]
+pstd = ["rustdb/pstd"]
