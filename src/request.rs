@@ -49,7 +49,9 @@ pub async fn process(
         } else if ct == b"application/x-www-form-urlencoded" {
             let clen: usize = clen.parse()?;
             let bytes = r.read(clen).await?;
-            t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+            // t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+            let pairs = std::str::from_utf8(&bytes)?;
+            decode_pairs(&pairs, &mut t.x.qy.form );
         } else if is_multipart(ct) {
             get_multipart(&mut r, &mut t.x.qy).await?;
         } else {
@@ -126,7 +128,7 @@ struct Headers {
     cookies: GBTreeMap<GString, GString>,
 
     content_type: Vec<u8>,
-    content_length: String,
+    content_length: GString,
 }
 
 impl Headers {
@@ -135,7 +137,7 @@ impl Headers {
         br.read_until(b' ', &mut r.method).await?;
         r.method.pop(); // Remove trailing space.
 
-        let mut pq = Vec::new();
+        let mut pq = Vec::new(); // Path and Query string.
         br.read_until(b' ', &mut pq).await?;
         pq.pop(); // Remove trailing space.
         r.split_pq(&pq)?;
@@ -163,7 +165,7 @@ impl Headers {
                         if let Some(line) = line_is(line, b"content-type") {
                             r.content_type = line.to_vec();
                         } else if let Some(line) = line_is(line, b"content-length") {
-                            r.content_length = tos(line)?;
+                            r.content_length = togs(line)?;
                         }
                     }
                     (b'h', b's') => {
@@ -206,8 +208,28 @@ impl Headers {
             q += 1;
         }
         let qs = &pq[q..n];
-        self.args = serde_urlencoded::from_bytes(qs)?;
+
+        // Had quite a lot of trouble getting this to work reliably.
+        // self.args = serde_urlencoded::from_bytes(qs)?;
+              
+        let qs = std::str::from_utf8(qs)?;
+        decode_pairs( qs, &mut self.args );
+        
         Ok(())
+    }
+}
+
+fn decode_pairs( s: &str, map: &mut GBTreeMap<GString,GString> ) {    
+    for kp in s.split('&') {
+        if let Some(p) = kp.find('=') {
+            let k = &kp[0..p];
+            let v = &kp[p+1..];
+            if let Ok(v) = urlencoding::decode(v) {
+                let k = GString::from_str(k);
+                let v = GString::from_str(&v);
+                map.insert(k,v);
+            } 
+        }
     }
 }
 
