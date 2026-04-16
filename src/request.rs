@@ -49,9 +49,9 @@ pub async fn process(
         } else if ct == b"application/x-www-form-urlencoded" {
             let clen: usize = clen.parse()?;
             let bytes = r.read(clen).await?;
-            // t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-            let pairs = std::str::from_utf8(&bytes)?;
-            decode_pairs(&pairs, &mut t.x.qy.form );
+            t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
+            // let pairs = std::str::from_utf8(&bytes)?;
+            // decode_pairs(&pairs, &mut t.x.qy.form );
         } else if is_multipart(ct) {
             get_multipart(&mut r, &mut t.x.qy).await?;
         } else {
@@ -209,16 +209,16 @@ impl Headers {
         }
         let qs = &pq[q..n];
 
-        // Had quite a lot of trouble getting this to work reliably.
-        // self.args = serde_urlencoded::from_bytes(qs)?;
+        self.args = serde_urlencoded::from_bytes(qs)?;
               
-        let qs = std::str::from_utf8(qs)?;
-        decode_pairs( qs, &mut self.args );
+        // let qs = std::str::from_utf8(qs)?;
+        // decode_pairs( qs, &mut self.args );
         
         Ok(())
     }
 }
 
+/* Manual method rather than using serde_urlencoded ( not working..! )
 fn decode_pairs( s: &str, map: &mut GBTreeMap<GString,GString> ) {    
     for kp in s.split('&') {
         if let Some(p) = kp.find('=') {
@@ -232,6 +232,7 @@ fn decode_pairs( s: &str, map: &mut GBTreeMap<GString,GString> ) {
         }
     }
 }
+*/
 
 /// Check whether current line is named header.
 fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a [u8]> {

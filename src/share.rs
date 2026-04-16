@@ -350,13 +350,11 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
-/*
 impl From<serde_urlencoded::de::Error> for Error {
     fn from(_e: serde_urlencoded::de::Error) -> Self {
         Self { code: 400 } // 400 = HTTTP Bad Request
     }
 }
-*/
 
 impl std::error::Error for Error {}
 

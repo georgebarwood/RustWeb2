@@ -1,6 +1,5 @@
-use rustdb::HashMap;
 use rustdb::{
-    AtomicFile, BlockPageStg, DB, Database, FastFileStorage, Limits, MultiFileStorage, ObjRef,
+    AtomicFile, BlockPageStg, DB, Database, FastFileStorage, HashMap, Limits, MultiFileStorage, ObjRef,
     PageStorage, SharedPagedData, Value,
     alloc::{LRc, LVec},
 };
@@ -13,7 +12,7 @@ use tokio::sync::{broadcast, mpsc};
 //static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[global_allocator]
-static GLOBAL: rustdb::alloc::Perm = rustdb::alloc::Perm;
+static GLOBAL_ALLOC: rustdb::alloc::Perm = rustdb::alloc::Perm;
 
 /// Program entry point
 fn main() {
