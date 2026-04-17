@@ -1,5 +1,5 @@
 use crate::share::{SharedState, Trans};
-use rustdb::{Database, Part};
+use rustdb::{Database, Part, alloc::GVec};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -71,7 +71,7 @@ async fn sleep_real(secs: u64) {
 }
 
 /// Get data from master server, retries in case of error
-async fn rget(state: Arc<SharedState>, query: &str) -> Vec<u8> {
+async fn rget(state: Arc<SharedState>, query: &str) -> GVec<u8> {
     // get a client builder
     let client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::new())
@@ -93,7 +93,11 @@ async fn rget(state: Arc<SharedState>, query: &str) -> Vec<u8> {
                      if status.is_success()
                      {
                          match r.bytes().await {
-                            Ok(b) => { return b.to_vec(); }
+                            Ok(b) => { 
+                                let mut v = GVec::new();
+                                v.extend_from_slice( &*b );
+                                return v;
+                            }
                             Err(e) => { println!("rget failed to get bytes err={e}" ); }
                          }
                      } else {

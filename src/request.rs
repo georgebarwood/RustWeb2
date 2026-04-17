@@ -1,5 +1,5 @@
 use crate::share::{Error, SharedState, Trans, U_COUNT, U_CPU, U_READ, U_WRITE, UseInfo};
-use rustdb::alloc::{GBTreeMap, GString, GTemp, Perm};
+use rustdb::alloc::{GBTreeMap, GString, GVec, GTemp, Perm};
 use rustdb::gentrans::GenQuery;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -121,13 +121,13 @@ fn header(t: &Trans) -> Vec<u8> {
 /// Header parsing.
 #[derive(Default)]
 struct Headers {
-    method: Vec<u8>,
+    method: GVec<u8>,
     path: GString,
     args: GBTreeMap<GString, GString>,
     host: GString,
     cookies: GBTreeMap<GString, GString>,
 
-    content_type: Vec<u8>,
+    content_type: GVec<u8>,
     content_length: GString,
 }
 
@@ -137,15 +137,15 @@ impl Headers {
         br.read_until(b' ', &mut r.method).await?;
         r.method.pop(); // Remove trailing space.
 
-        let mut pq = Vec::new(); // Path and Query string.
+        let mut pq = GVec::new(); // Path and Query string.
         br.read_until(b' ', &mut pq).await?;
         pq.pop(); // Remove trailing space.
         r.split_pq(&pq)?;
 
-        let mut protocol = Vec::new();
+        let mut protocol = GVec::new();
         br.read_until(b'\n', &mut protocol).await?;
 
-        let mut line0 = Vec::new();
+        let mut line0 = GVec::new();
         loop {
             let n = br.read_until(b'\n', &mut line0).await?;
             if n <= 2 {
@@ -163,7 +163,7 @@ impl Headers {
                     }
                     (b'c', b'n') => {
                         if let Some(line) = line_is(line, b"content-type") {
-                            r.content_type = line.to_vec();
+                            r.content_type = Self::gvec_from_slice(line);
                         } else if let Some(line) = line_is(line, b"content-length") {
                             r.content_length = togs(line)?;
                         }
@@ -189,6 +189,13 @@ impl Headers {
             line0.clear();
         }
         Ok(r)
+    }
+
+    fn gvec_from_slice(s: &[u8]) -> GVec<u8>
+    {
+       let mut result = GVec::new();
+       result.extend_from_slice(s);
+       result
     }
 
     /// Split the path and args by finding '?'.
@@ -370,7 +377,7 @@ use rustdb::Part;
 
 /// Parse multipart body.
 async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), Error> {
-    let mut boundary = Vec::new();
+    let mut boundary = GVec::new();
     let n = br.read_until(10, &mut boundary).await?;
     if n < 4 {
         return Err(eof())?;
@@ -383,7 +390,7 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
     while !got_last {
         let mut part = Part::default();
         // Read headers
-        let mut line0 = Vec::new();
+        let mut line0 = GVec::new();
         loop {
             let n = br.read_until(10, &mut line0).await?;
             if n <= 2 {
@@ -402,12 +409,12 @@ async fn get_multipart<'a>(br: &mut Buffer<'a>, q: &mut GenQuery) -> Result<(), 
             line0.clear();
         }
         // Read lines into data looking for boundary.
-        let mut data = Vec::new();
+        let mut data = GVec::new();
         loop {
             let n = br.read_until(10, &mut data).await?;
             if n == bn + 2 || n == bn + 4 {
                 let start = data.len() - n;
-                if data[start..start + bn] == boundary {
+                if data[start..start + bn] == *boundary {
                     got_last = n == bn + 4;
                     data.truncate(start - 2);
                     break;
@@ -514,7 +521,7 @@ impl<'a> Buffer<'a> {
     }
 
     /// Read until delim is found. Returns eof error if input is closed.
-    async fn read_until(&mut self, delim: u8, to: &mut Vec<u8>) -> Result<usize, Error> {
+    async fn read_until(&mut self, delim: u8, to: &mut GVec<u8>) -> Result<usize, Error> {
         let start = to.len();
         loop {
             if self.i == self.n {
@@ -530,8 +537,8 @@ impl<'a> Buffer<'a> {
     }
 
     /// Read specified number of bytes.
-    async fn read(&mut self, n: usize) -> Result<Vec<u8>, Error> {
-        let mut to = Vec::new();
+    async fn read(&mut self, n: usize) -> Result<GVec<u8>, Error> {
+        let mut to = GVec::new();
         loop {
             if self.i == self.n {
                 self.fill().await?;
