@@ -59,9 +59,8 @@ impl CExp<Value> for Argon {
         let pw = self.password.eval(ee, d).str();
         let salt = self.salt.eval(ee, d).str();
 
-        let a2 = argon2rs::argon2i_simple(&pw, &salt).to_vec();
-        let mut result = LVec::new();
-        result.extend_from_slice(&a2);
+        let a2 = argon2rs::argon2i_simple(&pw, &salt);
+        let result = LVec::from(&a2[..]);
         Value::RcBinary(LRc::new(result))
     }
 }
@@ -226,8 +225,7 @@ impl CExp<Value> for Binpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         let data = self.bytes.eval(ee, d);
         let cb: Vec<u8> = flate3::deflate(data.bina());
-        let mut v = LVec::new();
-        v.extend_from_slice(&cb);
+        let v = LVec::from(&*cb);
         Value::RcBinary(LRc::new(v))
     }
 }
@@ -245,8 +243,7 @@ impl CExp<Value> for Binunpack {
     fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> Value {
         let data = self.bytes.eval(ee, d);
         let ucb: Vec<u8> = flate3::inflate(data.bina());
-        let mut v = LVec::new();
-        v.extend_from_slice(&ucb);
+        let v = LVec::from(&*ucb);
         Value::RcBinary(LRc::new(v))
     }
 }

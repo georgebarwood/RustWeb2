@@ -163,7 +163,7 @@ impl Headers {
                     }
                     (b'c', b'n') => {
                         if let Some(line) = line_is(line, b"content-type") {
-                            r.content_type = Self::gvec_from_slice(line);
+                            r.content_type = GVec::from(line);
                         } else if let Some(line) = line_is(line, b"content-length") {
                             r.content_length = togs(line)?;
                         }
@@ -190,14 +190,7 @@ impl Headers {
         }
         Ok(r)
     }
-
-    fn gvec_from_slice(s: &[u8]) -> GVec<u8>
-    {
-       let mut result = GVec::new();
-       result.extend_from_slice(s);
-       result
-    }
-
+    
     /// Split the path and args by finding '?'.
     fn split_pq(&mut self, pq: &[u8]) -> Result<(), Error> {
         let n = pq.len();

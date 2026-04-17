@@ -93,11 +93,7 @@ async fn rget(state: Arc<SharedState>, query: &str) -> GVec<u8> {
                      if status.is_success()
                      {
                          match r.bytes().await {
-                            Ok(b) => { 
-                                let mut v = GVec::new();
-                                v.extend_from_slice( &*b );
-                                return v;
-                            }
+                            Ok(b) => return GVec::from( &*b ),
                             Err(e) => { println!("rget failed to get bytes err={e}" ); }
                          }
                      } else {

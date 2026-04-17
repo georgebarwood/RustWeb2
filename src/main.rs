@@ -169,8 +169,7 @@ fn main_inner() {
 fn save_transaction(db: &DB, bytes: Vec<u8>) {
     if let Some(t) = db.get_table(&ObjRef::new("log", "Transaction")) {
         let bytes = flate3::deflate(&bytes);
-        let mut v = LVec::new();
-        v.extend_from_slice(&bytes);
+        let v = LVec::from(&*bytes);
         let bytes = Value::RcBinary(LRc::new(v));
         let mut row = t.row();
         row.id = t.alloc_id(db);
