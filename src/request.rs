@@ -88,7 +88,7 @@ pub async fn process(
                     Perm::alloc_count()
                 );
                 println!("Perm::info = {:?}", Perm::info());
-                println!("GTemp::info = {:?}", GTemp::info());
+                println!("GTemp::info = {:?}", GTemp::info()); 
             }
         }
         (header(&t), t.x.rp.output)
