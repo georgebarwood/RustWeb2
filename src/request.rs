@@ -1,5 +1,5 @@
 use crate::share::{Error, SharedState, Trans, U_COUNT, U_CPU, U_READ, U_WRITE, UseInfo};
-use rustdb::alloc::{GBTreeMap, GString, GVec, GTemp, Perm};
+use rustdb::alloc::{GBTreeMap, GString, GTemp, GVec, Perm};
 use rustdb::gentrans::GenQuery;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -88,7 +88,7 @@ pub async fn process(
                     Perm::alloc_count()
                 );
                 println!("Perm::info = {:?}", Perm::info());
-                println!("GTemp::info = {:?}", GTemp::info()); 
+                println!("GTemp::info = {:?}", GTemp::info());
             }
         }
         (header(&t), t.x.rp.output)
@@ -190,7 +190,7 @@ impl Headers {
         }
         Ok(r)
     }
-    
+
     /// Split the path and args by finding '?'.
     fn split_pq(&mut self, pq: &[u8]) -> Result<(), Error> {
         let n = pq.len();
@@ -210,25 +210,25 @@ impl Headers {
         let qs = &pq[q..n];
 
         self.args = serde_urlencoded::from_bytes(qs)?;
-              
+
         // let qs = std::str::from_utf8(qs)?;
         // decode_pairs( qs, &mut self.args );
-        
+
         Ok(())
     }
 }
 
 /* Manual method rather than using serde_urlencoded ( not working..! )
-fn decode_pairs( s: &str, map: &mut GBTreeMap<GString,GString> ) {    
+fn decode_pairs( s: &str, map: &mut GBTreeMap<GString,GString> ) {
     for kp in s.split('&') {
         if let Some(p) = kp.find('=') {
             let k = &kp[0..p];
             let v = &kp[p+1..];
             if let Ok(v) = urlencoding::decode(v) {
-                let k = GString::from_str(k);
-                let v = GString::from_str(&v);
+                let k = GString::from(k);
+                let v = GString::from(&v);
                 map.insert(k,v);
-            } 
+            }
         }
     }
 }
@@ -265,7 +265,7 @@ fn lower(mut b: u8) -> u8 {
 }
 
 fn togs(s: &[u8]) -> Result<GString, Error> {
-    Ok(GString::from_str(std::str::from_utf8(s)?))
+    Ok(GString::from(std::str::from_utf8(s)?))
 }
 
 /// Convert byte slice into string.
@@ -342,7 +342,7 @@ fn split_cd(s: &[u8]) -> Option<(GString, GString)> {
         if let Some(n) = m.get_param("filename") {
             filename = n.as_str()
         }
-        Some((GString::from_str(name), GString::from_str(filename)))
+        Some((GString::from(name), GString::from(filename)))
     } else {
         None
     }

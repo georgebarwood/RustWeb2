@@ -284,7 +284,7 @@ impl CExp<Value> for Deserialise {
         let ser = self.ser.eval(ee, d);
         let qy: rustdb::gentrans::GenQuery = bincode::deserialize(ser.bina()).unwrap();
         let s = serde_json::to_string(&qy).unwrap();
-        Value::String(LRc::new(LString::from_str(&s)))
+        Value::String(LRc::new(LString::from(&*s)))
     }
 }
 
