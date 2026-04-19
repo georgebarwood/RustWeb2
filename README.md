@@ -93,6 +93,8 @@ Optional Features
 =================
 mt-tokio enables the multi-threaded tokio runtime (enabled by default).
 
+pstd enables full use of pstd crate (enabled by default).
+
 unsafe-optim enables unsafe optimisations (should not cause any problem, but programmers are fallible).
 
 log enables logging of various internal operations.
