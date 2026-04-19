@@ -7,10 +7,6 @@ use rustdb::{
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, mpsc};
 
-//#[cfg(not(miri))]
-//#[global_allocator]
-//static MEMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 #[global_allocator]
 static GLOBAL_ALLOC: rustdb::alloc::Perm = rustdb::alloc::Perm;
 
