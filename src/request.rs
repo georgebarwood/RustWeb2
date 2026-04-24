@@ -50,8 +50,6 @@ pub async fn process(
             let clen: usize = clen.parse()?;
             let bytes = r.read(clen).await?;
             t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-            // let pairs = str::from_utf8(&bytes)?;
-            // decode_pairs(&pairs, &mut t.x.qy.form );
         } else if is_multipart(ct) {
             get_multipart(&mut r, &mut t.x.qy).await?;
         } else {
@@ -101,8 +99,8 @@ pub async fn process(
 }
 
 /// Get response header.
-fn header(t: &Trans) -> Vec<u8> {
-    let mut h = Vec::with_capacity(4096);
+fn header(t: &Trans) -> GVec<u8> {
+    let mut h = GVec::with_capacity(4096);
     let status_line = format!("HTTP/1.1 {}\r\n", t.x.rp.status_code);
     h.extend_from_slice(status_line.as_bytes());
     for (name, value) in &t.x.rp.headers {
@@ -211,28 +209,9 @@ impl Headers {
 
         self.args = serde_urlencoded::from_bytes(qs)?;
 
-        // let qs = str::from_utf8(qs)?;
-        // decode_pairs( qs, &mut self.args );
-
         Ok(())
     }
 }
-
-/* Manual method rather than using serde_urlencoded ( not working..! )
-fn decode_pairs( s: &str, map: &mut GBTreeMap<GString,GString> ) {
-    for kp in s.split('&') {
-        if let Some(p) = kp.find('=') {
-            let k = &kp[0..p];
-            let v = &kp[p+1..];
-            if let Ok(v) = urlencoding::decode(v) {
-                let k = GString::from(k);
-                let v = GString::from(&v);
-                map.insert(k,v);
-            }
-        }
-    }
-}
-*/
 
 /// Check whether current line is named header.
 fn line_is<'a>(line: &'a [u8], name: &[u8]) -> Option<&'a [u8]> {

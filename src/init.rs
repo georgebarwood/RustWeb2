@@ -2987,7 +2987,7 @@ SELECT '<h1>Manual</h1>
 <li>PARSEFLOAT( s string ) : parses a floating point number from s.</li>
 <li>EXCEPTION() returns a string with any error that occurred during an EXECUTE statement.</li>
 <li>REPACKFILE(k,schema,table) : A file is re-packed to free up pages. The result is an integer, the number of pages freed, or -1 if the table or index does not exist. k=0 => main file, k=1.. => an index, k in -4..-1 => byte storage files. 
-<li>VERIFYDB() : verifies the logical page structure of the database. Returns is a string. Note: this needs exclusive access to the database to give consistent results, as it can observe update activity in shared data structures. Calling it while another process is updating the database may result in an exception.
+<li>VERIFYDB() : verifies the logical page structure of the database. Returns a string. Note: this needs exclusive access to the database to give consistent results, as it can observe update activity in shared data structures. Calling it while another process is updating the database may result in an exception.
 <li>See the web schema for functions that can be used to access http requests.</li>
 </ul>
 <h3>Conversions</h3>
