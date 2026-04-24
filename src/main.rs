@@ -10,6 +10,9 @@ use tokio::sync::{broadcast, mpsc};
 #[global_allocator]
 static GLOBAL_ALLOC: rustdb::alloc::Perm = rustdb::alloc::Perm;
 
+// #[global_allocator]
+// static ALLOC: numalloc::NumaAlloc = numalloc::NumaAlloc::new();
+
 /// Program entry point
 fn main() {
     main_inner();

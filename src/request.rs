@@ -1,7 +1,7 @@
 use crate::share::{Error, SharedState, Trans, U_COUNT, U_CPU, U_READ, U_WRITE, UseInfo};
 use rustdb::alloc::{GBTreeMap, GString, GTemp, GVec, Perm};
 use rustdb::gentrans::GenQuery;
-use std::sync::Arc;
+use std::{str, sync::Arc};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Process http request.
@@ -50,7 +50,7 @@ pub async fn process(
             let clen: usize = clen.parse()?;
             let bytes = r.read(clen).await?;
             t.x.qy.form = serde_urlencoded::from_bytes(&bytes)?;
-            // let pairs = std::str::from_utf8(&bytes)?;
+            // let pairs = str::from_utf8(&bytes)?;
             // decode_pairs(&pairs, &mut t.x.qy.form );
         } else if is_multipart(ct) {
             get_multipart(&mut r, &mut t.x.qy).await?;
@@ -211,7 +211,7 @@ impl Headers {
 
         self.args = serde_urlencoded::from_bytes(qs)?;
 
-        // let qs = std::str::from_utf8(qs)?;
+        // let qs = str::from_utf8(qs)?;
         // decode_pairs( qs, &mut self.args );
 
         Ok(())
@@ -265,12 +265,12 @@ fn lower(mut b: u8) -> u8 {
 }
 
 fn togs(s: &[u8]) -> Result<GString, Error> {
-    Ok(GString::from(std::str::from_utf8(s)?))
+    Ok(GString::from(str::from_utf8(s)?))
 }
 
 /// Convert byte slice into string.
 fn tos(s: &[u8]) -> Result<String, Error> {
-    Ok(std::str::from_utf8(s)?.to_string())
+    Ok(str::from_utf8(s)?.to_string())
 }
 
 /// Not enough input.
@@ -329,7 +329,7 @@ fn split_cd(s: &[u8]) -> Option<(GString, GString)> {
     /* Expected input:
        form-data; name="file"; filename="logo.png"
     */
-    if let Ok(s) = std::str::from_utf8(s) {
+    if let Ok(s) = str::from_utf8(s) {
         let s = "multipart/".to_string() + s;
         let (mut name, mut filename) = ("", "");
         let m: mime::Mime = s.parse().ok()?;

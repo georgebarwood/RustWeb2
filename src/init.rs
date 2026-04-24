@@ -959,7 +959,7 @@ END
 GO
 
 INSERT INTO [web].[File](Id,[Path],[ContentType],[Content]) VALUES 
-(16,'/favicon.ico','image/x-icon',0x00000100010010100000010020002804000016000000280000001000000020000000010020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ff840008ffc60008ffbd0008ffc60008ff830000000000000000000000000000000000000000000000000000000000000000000000000000ff190009ffef0008ff620009ff38000000000009ff380008ff620009ffec0000ff150000000000000000000000000000000000000000000000000000ff160008ffc30000ff0f00000000000000000000000000000000000000000000ff120008ffc30000ff1400000000000000000000000000000000000000000009ffcb0005ff33000000000000000000000000000000000000000000000000000000000005ff370009ffc7000000000000000000000000000000000006ff5c0007ff8e0000000000000000000000000000000000000000000000000000000000000000000000000007ff910006ff580000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000008ffbd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ffbd0000000000000000000000000008ffd60006ff280000000000000000000000000000000000000000000000000000000000000000000000000006ff2a0008ffd40000000000000000000000000009ffac0006ff520000000000000000000000000000000000000000000000000000000000000000000000000009ff550008ffa90000000000000000000000000005ff5d0007ff8b0000000000000000000000000000000000000000000000000000000000000000000000000007ff8e0006ff5a000000000000000000000000000000000009ffcd0005ff31000000000000000000000000000000000000000000000000000000000005ff350009ffc900000000000000000000000000000000000000000000ff180008ffc20000ff0b00000000000000000000000000000000000000000000ff0e0008ffc20000ff170000000000000000000000000000000000000000000000000009ff1c0008fff30008ff600005ff37000000000005ff370008ff600008fff00000ff180000000000000000000000000000000000000000000000000000000000000000000000000009ff870009ffc80008ffbf0009ffc80008ff86000000000000000000000000000000000000000000000000)
+(16,'/favicon.ico','image/x-icon',0x0010101010001020028400160002800010000200001020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008ff8408ffc608ffbd08ffc608ff8300000000000000000000000000000000000000ff1909ffef08ff6209ff38000009ff3808ff6209ffec00ff1500000000000000000000000000ff1608ffc300fff0000000000000000000000ff1208ffc300ff140000000000000000000009ffcb05ff33000000000000000000000000000005ff3709ffc7000000000000000006ff5c07ff8e00000000000000000000000000000000000007ff9106ff5800000000000009ffac06ff5200000000000000000000000000000000000009ff5508ffa900000000000008ffd606ff2800000000000000000000000000000000000006ff2a08ffd400000000000008ffbd0000000000000000000000000000000000000000000008ffbd00000000000008ffd606ff2800000000000000000000000000000000000006ff2a08ffd400000000000009ffac06ff5200000000000000000000000000000000000009ff5508ffa900000000000005ff5d07ff8b00000000000000000000000000000000000007ff8e06ff5a000000000000000009ffcd05ff31000000000000000000000000000005ff3509ffc90000000000000000000000ff1808ffc200ffb0000000000000000000000ffe08ffc200ff1700000000000000000000000009ff1c08fff308ff6005ff37000005ff3708ff6008fff000ff1800000000000000000000000000000000000009ff8709ffc808ffbf09ffc808ff86000000000000000000000000)
 GO
 
 --############################################
@@ -1098,6 +1098,9 @@ BEGIN
 
   SELECT '<form method=post enctype="multipart/form-data">'  
   EXECUTE( browse.FormUpdateSql( t, k ) )
+  -- SELECT browse.FormUpdateSql( t, k )
+  
+
   SELECT '<p><input name="$submit" type=submit value=Save></form>'
 
   SELECT '<form method=post><input name="$submit" type=submit value=Delete></form>'
@@ -1326,6 +1329,7 @@ BEGIN
   FROM sys.Table WHERE Id = t
 
   EXECUTE( sql )
+  --SELECT web.Encode(sql)
 
   EXEC admin.Trailer()
 END
@@ -1432,8 +1436,8 @@ CREATE FN [browse].[ColValues]( table int, ba string ) RETURNS string AS
 BEGIN
   DECLARE col string, colid int, type int
   FOR colid = Id, type=Type, col = CASE 
-    WHEN Type % 8 = 2 THEN 'web.Encode(sys.SingleQuote(' | Name | '))'
-    ELSE Name
+    WHEN Type % 8 = 2 THEN 'web.Encode(sys.SingleQuote(' | sys.QuoteName(Name) | '))'
+    ELSE sys.QuoteName(Name)
   END
   FROM sys.Column WHERE Table = table 
   ORDER BY browse.ColPos(Id), Id
@@ -1583,6 +1587,19 @@ BEGIN
   DECLARE cn string 
   SET cn = Name FROM sys.Column WHERE Id = colId
   RETURN browse.Label(colId) | '<input type=checkbox id="' | cn | '" name="' | cn | '"' | CASE WHEN value THEN ' checked' ELSE '' END | '>'
+END
+GO
+
+CREATE FN [browse].[InputDecimal]( colId int, value int) RETURNS string AS 
+BEGIN 
+  DECLARE cn string SET cn = Name FROM sys.Column WHERE Id = colId
+  DECLARE size int
+  DECLARE scale int SET scale = 100
+ 
+  SET size = InputCols FROM browse.Column WHERE Id = colId
+
+  IF size = 0 SET size = 10
+  RETURN browse.Label(colId) | '<input type=decimal id="' | cn | '" name="' | cn | '" size=' | size | ' value=' | browse.ShowDecimal(value,scale) | '>'
 END
 GO
 
@@ -1755,6 +1772,28 @@ BEGIN
 END
 GO
 
+CREATE FN [browse].[ParseDecimal](s string, scale int) RETURNS int AS 
+BEGIN
+  DECLARE x int
+  SET x = CONTAINS(s,'.')
+
+  IF x < 0 SET result = PARSEINT(s) * scale
+  ELSE
+  BEGIN
+    DECLARE ls int, t int SET t=scale WHILE t > 1 BEGIN SET ls += 1, t = t / 10 END
+
+    DECLARE b string, a string, part int
+    SET b = SUBSTRING(s,1,x)
+    SET a = SUBSTRING(s,x+2, ls) -- Simply ignores any trailing chars
+
+    SET result = PARSEINT(b) * scale
+    SET part = PARSEINT(a)
+
+    IF result < 0 SET result = result - part ELSE SET result = result + part
+  END
+END
+GO
+
 CREATE FN [browse].[SchemaSelect]( colId int, sel int ) RETURNS string AS
 BEGIN
   DECLARE col string SET col = Name FROM sys.Column WHERE Id = colId
@@ -1772,6 +1811,19 @@ BEGIN
 END
 GO
 
+CREATE FN [browse].[ShowDecimal]( value int, scale int) RETURNS string AS 
+BEGIN
+  IF value < 0 BEGIN SET value = -value, result = '-' END
+
+  DECLARE a string
+  SET a = '' | scale + ( value % scale )
+  SET a = SUBSTRING(a, 2, 99)
+  
+
+  SET result = result | ( value / scale ) | '.' | a
+END
+GO
+
 CREATE FN [browse].[ShowImage](id int,colid int) RETURNS string AS
 BEGIN 
    RETURN '<img style="max-width:300px;" src="/browse-File?k=' | id | '&c=' | colid |'">'
@@ -1784,8 +1836,8 @@ BEGIN
 
   DECLARE cols string, col string, colname string, colid int
   FOR colid = Id, colname = Name, col = CASE 
-    WHEN Type % 8 = 2 THEN 'web.Encode(' | Name | ')'
-    ELSE Name
+    WHEN Type % 8 = 2 THEN 'web.Encode(' | sys.QuoteName(Name) | ')'
+    ELSE sys.QuoteName(Name)
     END
   FROM sys.Column WHERE Table = table 
   ORDER BY browse.ColPos(Id), Id
@@ -1859,6 +1911,7 @@ BEGIN
     WHEN t=11 THEN browse.SqlImage(kind,colid)
     WHEN t=12 THEN browse.SqlFileName(kind,colid)
     WHEN t=13 THEN browse.SqlVersionCheck(kind,colid)
+    WHEN t=14 THEN browse.SqlDecimal(kind,colid)
     ELSE 'browseSqlInvalidDatatype' 
     END 
 END
@@ -1874,13 +1927,13 @@ BEGIN
    IF kind = 3 SET default = Default 
    FROM browse.Column WHERE Id = colid
 
-   IF default = '' SET default = ''''''
+   IF default = '' SET default = '0x'
  
    SET result = CASE
-     WHEN kind = 1 THEN Name
-     WHEN kind = 2 THEN Name
-     WHEN kind = 3 THEN  'browse.InputString(' | colid | ',' | default | ')'
-     WHEN kind = 4 THEN  'browse.InputString(' | colid | ',' | Name | ')' 
+     WHEN kind = 1 THEN sys.QuoteName(Name)
+     WHEN kind = 2 THEN sys.QuoteName(Name)
+     WHEN kind = 3 THEN  'browse.InputBinary(' | colid | ',' | default | ')'
+     WHEN kind = 4 THEN  'browse.InputBinary(' | colid | ',' | sys.QuoteName(Name) | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'web.Form(' | sys.SingleQuote(Name) | ')' 
      ELSE 'SqlBinaryBADKIND'
    END
@@ -1903,9 +1956,9 @@ BEGIN
    END
  
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN Name 
+     WHEN kind = 1 OR kind = 2 THEN sys.QuoteName(Name)
      WHEN kind = 3 THEN  'browse.InputBool(' | colid | ',' | default | ')' 
-     WHEN kind = 4 THEN  'browse.InputBool(' | colid | ',' | Name | ')' 
+     WHEN kind = 4 THEN  'browse.InputBool(' | colid | ',' | sys.QuoteName(Name) | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'browse.ParseBool(web.Form(' | sys.SingleQuote(Name) | '))' 
      ELSE 'SqlBoolBADKIND'
    END
@@ -1951,11 +2004,39 @@ BEGIN
    FROM browse.Column WHERE Id = colid
   
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN 'date.YearMonthDayToString(' | Name | ')' 
+     WHEN kind = 1 OR kind = 2 THEN 'date.YearMonthDayToString(' | sys.QuoteName(Name) | ')' 
      WHEN kind = 3 THEN  'browse.InputYearMonthDay(' | colid | ',' | default | ')'
-     WHEN kind = 4 THEN  'browse.InputYearMonthDay(' | colid | ',' | Name | ')'
+     WHEN kind = 4 THEN  'browse.InputYearMonthDay(' | colid | ',' | sys.QuoteName(Name) | ')'
      WHEN kind = 5 OR kind = 6 THEN  'date.StringToYearMonthDay(web.Form(' | sys.SingleQuote(Name) | '))' 
      ELSE 'SqlDateBADKIND'
+   END
+
+   FROM sys.Column WHERE Id = colid
+END
+GO
+
+CREATE FN [browse].[SqlDecimal]( kind int, colid int ) RETURNS string AS
+BEGIN
+   /* kind values: 
+      List=1, Show=2, Input(insert)=3, Input(update)=4, Parse(insert)=5, Parse(update) = 6 
+   */
+
+   DECLARE default string, scale int
+
+   SET scale = 100 -- Will eventually come from browse.Column
+
+   IF kind = 3 
+   BEGIN
+      SET default = Default FROM browse.Column WHERE Id = colid
+      IF default = '' SET default = '0'
+   END
+ 
+   SET result = CASE
+     WHEN kind = 1 OR kind = 2 THEN 'browse.ShowDecimal(' | sys.QuoteName(Name) | ',' | scale | ')'
+     WHEN kind = 3 THEN  'browse.InputDeicmal(' | colid | ',' | default | ')'
+     WHEN kind = 4 THEN  'browse.InputDecimal(' | colid | ',' | sys.QuoteName(Name) | ')' 
+     WHEN kind = 5 OR kind = 6 THEN  'browse.ParseDecimal(web.Form(' | sys.SingleQuote(Name) | '),' | scale | ')' 
+     ELSE 'SqlDecimalBADKIND'
    END
 
    FROM sys.Column WHERE Id = colid
@@ -2020,9 +2101,9 @@ BEGIN
    END
  
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN Name 
+     WHEN kind = 1 OR kind = 2 THEN sys.QuoteName(Name)
      WHEN kind = 3 THEN  'browse.InputDouble(' | colid | ',' | default | ')'
-     WHEN kind = 4 THEN  'browse.InputDouble(' | colid | ',' | Name | ')' 
+     WHEN kind = 4 THEN  'browse.InputDouble(' | colid | ',' | sys.QuoteName(Name) | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'PARSEFLOAT(web.Form(' | sys.SingleQuote(Name) | '))' 
      ELSE 'SqlFloatBADKIND'
    END
@@ -2064,9 +2145,9 @@ BEGIN
    END
  
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN Name 
+     WHEN kind = 1 OR kind = 2 THEN sys.QuoteName(Name)
      WHEN kind = 3 THEN  'browse.InputInt(' | colid | ',' | default | ')'
-     WHEN kind = 4 THEN  'browse.InputInt(' | colid | ',' | Name | ')' 
+     WHEN kind = 4 THEN  'browse.InputInt(' | colid | ',' | sys.QuoteName(Name) | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'PARSEINT(web.Form(' | sys.SingleQuote(Name) | '))' 
      ELSE 'SqlIntegerBADKIND'
    END
@@ -2088,7 +2169,7 @@ BEGIN
    IF default = '' SET default = ''''''
  
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN Name
+     WHEN kind = 1 OR kind = 2 THEN sys.QuoteName(Name)
 
      WHEN kind = 3 OR kind = 5 THEN  '' /* Password has to be set after creating user as Id is included as salt */ 
 
@@ -2116,10 +2197,10 @@ BEGIN
    IF default = '' SET default = ''''''
  
    SET result = CASE
-     WHEN kind = 1 THEN 'sys.SingleQuote(web.Encode(' | Name | '))' 
-     WHEN kind = 2 THEN 'web.Encode(' | Name | ')' 
+     WHEN kind = 1 THEN 'sys.SingleQuote(web.Encode(' | sys.QuoteName(Name) | '))' 
+     WHEN kind = 2 THEN 'web.Encode(' | sys.QuoteName(Name) | ')' 
      WHEN kind = 3 THEN  'browse.InputString(' | colid | ',' | default | ')'
-     WHEN kind = 4 THEN  'browse.InputString(' | colid | ',' | Name | ')' 
+     WHEN kind = 4 THEN  'browse.InputString(' | colid | ',' | sys.QuoteName(Name) | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'web.Form(' | sys.SingleQuote(Name) | ')' 
      ELSE 'SqlStringBADKIND'
    END
@@ -2139,9 +2220,9 @@ BEGIN
    FROM browse.Column WHERE Id = colid
  
    SET result = CASE
-     WHEN kind = 1 OR kind = 2 THEN 'date.MicroSecToString(' | Name | ')'
+     WHEN kind = 1 OR kind = 2 THEN 'date.MicroSecToString(' | sys.QuoteName(Name) | ')'
      WHEN kind = 3 THEN   'browse.InputTime(' | colid | ',' | default | ')'
-     WHEN kind = 4 THEN   'browse.InputTime(' | colid | ',' | Name | ')'
+     WHEN kind = 4 THEN   'browse.InputTime(' | colid | ',' | sys.QuoteName(Name) | ')'
      WHEN kind = 5 OR kind = 6 THEN  'date.StringToTime(web.Form(' | sys.SingleQuote(Name) | '))' 
      ELSE 'SqlTimeBADKIND'
    END
@@ -2357,6 +2438,7 @@ INSERT INTO [browse].[Datatype](Id,[Name],[DataKind],[SqlFn]) VALUES
 (11,'Image',1,'browse.SqlImage')
 (12,'FileName',2,'browse.SqlFileName')
 (13,'VersionCheck',3,'browse.SqlVersionCheck')
+(14,'Decimal',3,'browse.SqlDecimal')
 GO
 
 INSERT INTO [browse].[Table](Id,[NameFunction],[SelectFunction],[DefaultOrder],[Title],[Description],[Role]) VALUES 
@@ -2879,7 +2961,7 @@ SELECT '<h1>Manual</h1>
 <p>Expressions are composed from literals, named local variables, local parameters and named columns from tables. These may be combined using operators, stored functions, pre-defined functions. There is also the CASE expression, which has syntax CASE WHEN bool1 THEN exp1 WHEN bool2 THEN exp2 .... ELSE exp END - the result is the expression associated with the first bool expression which evaluates to true.
 <h3>Literals</h3>
 <p>String literals are written enclosed in single quotes. If a single quote is needed in a string literal, it is written as two single quotes. Binary literals are written in hexadecimal preceded by 0x. Integers are a list of digits (0-9). The bool literals are true and false.
-<h3>Names</h3><p>Names are enclosed in square brackets and are case sensitive ( although language keywords such as CREATE SELECT are case insensitive, and are written without the square brackets, often in upper case only by convention ). The square brackets can be omitted if the name consists of only letters (A-Z,a-z).
+<h3>Names</h3><p>Names are enclosed in square brackets and are case sensitive. The square brackets can be omitted if the name consists of only letters (A-Z,a-z).
 <h3>Operators</h3>
 <p>The operators ( all binary, except for - which can be unary, and NOT which is only unary ) in order of precedence, high to low, are as follows:
 <ul>
@@ -2899,12 +2981,13 @@ SELECT '<h1>Manual</h1>
 <li>SUBSTRING( s string, start int, len int ) : returns the substring of s from start (1-based) length len.</li>
 <li>BINSUBSTRING( s binary, start int, len int ) : binary version of SUBSTRING.</li>
 <li>REPLACE( s string, pat string, sub string ) : returns a copy of s where every occurrence of pat is replaced with sub.</li>
+<li>CONTAINS( s string, pat string ) : returns 0-based index of first occurrence of pat in s, or -1 if no match.</li>
 <li>LASTID() : returns the last Id value allocated by an INSERT statement.</li>
 <li>PARSEINT( s string ) : parses an integer from s.</li>
 <li>PARSEFLOAT( s string ) : parses a floating point number from s.</li>
 <li>EXCEPTION() returns a string with any error that occurred during an EXECUTE statement.</li>
 <li>REPACKFILE(k,schema,table) : A file is re-packed to free up pages. The result is an integer, the number of pages freed, or -1 if the table or index does not exist. k=0 => main file, k=1.. => an index, k in -4..-1 => byte storage files. 
-<li>VERIFYDB() : verifies the logical page structure of the database. , the result is a string. Note: this needs exclusive access to the database to give consistent results, as it can observe update activity in shared data structures. Calling it while another process is updating the database may result in an exception.
+<li>VERIFYDB() : verifies the logical page structure of the database. Returns is a string. Note: this needs exclusive access to the database to give consistent results, as it can observe update activity in shared data structures. Calling it while another process is updating the database may result in an exception.
 <li>See the web schema for functions that can be used to access http requests.</li>
 </ul>
 <h3>Conversions</h3>
@@ -2934,7 +3017,7 @@ SELECT '<h1>Manual</h1>
 <h2>Guide to the system schemas</h2>
 <h3>admin</h3><p>System administration.
 <h3>browse</h3><p>Functions for displaying, editing arbitrary tables in the database.
-<h3>date</h3><p>Functions for manipulating dates - conversions between Days ( from year 0 ), Year-Day, Year-Month-Day and string.
+<h3>date</h3><p>Functions for manipulating dates and times - conversions between Days ( from year 0 ), Year-Day, Year-Month-Day and string.
 <h3>email</h3><p>Tables and functions for sending email.
 <h3>log</h3><p>Transaction logging for database replication.
 <h3>sys</h3><p>Core system tables for language objects and related functions.
