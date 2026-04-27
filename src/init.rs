@@ -1394,7 +1394,6 @@ BEGIN
     SET ref = 0, nf = '', label = ''
     SET ref = RefersTo, label = Label FROM browse.Column WHERE Id = colid
     IF ref > 0 SET nf = NameFunction FROM browse.Table WHERE Id = ref
-    SET ob = DefaultOrder FROM browse.Table WHERE Id = ref
     SET result |= '|''<TD' | CASE WHEN type % 8 != 2 THEN ' align=right' ELSE '' END | '>''|'
       | CASE 
         WHEN nf != '' THEN '''<a href="/browse-Row?' | browse.tablearg(ref) | '&k=''|' | col | '|''' | ba | '">''|' | nf | '(' | col | ')' | '|''</a>''' 
