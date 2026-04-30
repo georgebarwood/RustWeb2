@@ -34,10 +34,10 @@ BEGIN
   DECLARE col string
   SET result = 'Id'
   FOR col = CASE 
-    WHEN Type % 8 = 2 THEN 'sys.SingleQuote(' | Name | ')'
-    WHEN Type % 8 = 4 THEN 'sys.FloatLiteral(' | Name | ')'
+    WHEN Type % 8 = 2 THEN 'sys.SingleQuote(' | sys.QuoteName(Name) | ')'
+    WHEN Type % 8 = 4 THEN 'sys.FloatLiteral(' | sys.QuoteName(Name) | ')'
     WHEN Id = 2 OR Id = 9 THEN '''ALLOCPAGE()'''
-    ELSE Name
+    ELSE sys.QuoteName(Name)
   END
   FROM sys.Column WHERE Table = table
     SET result |= '|'',''|' | col
@@ -445,6 +445,8 @@ GO
 
 CREATE FN [date].[StringToTime]( s string ) RETURNS int AS
 BEGIN
+  IF s = '' RETURN 0
+  
   -- Typical input is 'Feb 2 2020 20:15:31'
   DECLARE month int, day int, year int, hour int, min int, sec int
 
@@ -2032,7 +2034,7 @@ BEGIN
  
    SET result = CASE
      WHEN kind = 1 OR kind = 2 THEN 'browse.ShowDecimal(' | sys.QuoteName(Name) | ',' | scale | ')'
-     WHEN kind = 3 THEN  'browse.InputDeicmal(' | colid | ',' | default | ')'
+     WHEN kind = 3 THEN  'browse.InputDecimal(' | colid | ',' | default | ')'
      WHEN kind = 4 THEN  'browse.InputDecimal(' | colid | ',' | sys.QuoteName(Name) | ')' 
      WHEN kind = 5 OR kind = 6 THEN  'browse.ParseDecimal(web.Form(' | sys.SingleQuote(Name) | '),' | scale | ')' 
      ELSE 'SqlDecimalBADKIND'
