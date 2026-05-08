@@ -20,7 +20,7 @@ pub async fn backup_loop(is_new: bool, state: Arc<SharedState>) {
         st.log = false;
         st.x.qy.sql = Arc::new(sql);
         st = state.process(st).await;
-        println!("New replicated database initialised error={}", &st.x.rp.err);
+        println!("New replicated database initialised error={}", st.x.rp.err);
         let mut st = Trans::new();
         st.log = false;
         st.x.qy.sql = Arc::new("EXEC log.InitReplication()".to_string());
