@@ -153,6 +153,16 @@ impl SharedState {
         });
     }
 
+    /// Dummy transaction make sure the update task has completed any current work.
+    pub fn stopping(&self)
+    {
+       let mut trans = Trans::new();
+       trans.readonly = false;
+       trans.x.qy.sql = Arc::new("".to_string());
+       let _ = self.process(trans);
+       println!("Stopping complete");
+    }
+
     /// Called to notify tasks waiting for new transaction.
     pub fn new_trans(&self) {
         let _ = self.wait_tx.send(());
@@ -263,6 +273,11 @@ impl Trans {
         pdf_min::html(&mut w, source);
         w.finish();
         self.x.rp.output = w.b.b;
+    /*
+        let source = str::from_utf8( &self.x.rp.output ).unwrap();
+        self.x.rp.output = ironpress::html_to_pdf(source).unwrap();
+    */
+    
     }
 
     pub fn no_log(&mut self) -> bool {

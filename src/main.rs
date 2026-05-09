@@ -160,6 +160,8 @@ fn main_inner() {
             }
         }
     });
+    // Send a message to the update task to tell it to stop, or there could be a race condition here.
+    ss.stopping();
     // Wait until any outstanding writes are flushed to secondary storage.
     spdc.wait_complete();
 }
