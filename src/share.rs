@@ -153,16 +153,6 @@ impl SharedState {
         });
     }
 
-    /// Dummy transaction make sure the update task has completed any current work.
-    pub fn stopping(&self)
-    {
-       let mut trans = Trans::new();
-       trans.readonly = false;
-       trans.x.qy.sql = Arc::new("".to_string());
-       let _ = self.process(trans);
-       println!("Stopping complete");
-    }
-
     /// Called to notify tasks waiting for new transaction.
     pub fn new_trans(&self) {
         let _ = self.wait_tx.send(());
