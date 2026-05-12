@@ -60,6 +60,12 @@ pub async fn process(
         if t.x.rp.status_code == 200 {
             t.readonly = readonly;
             t = ss.process(t).await;
+
+            if t.is_convert_to_pdf()
+            {
+               t.convert_to_pdf().await;
+            }
+            
             r.uid = t.uid.clone();
             r.u.used[U_CPU] = t.run_time.as_micros() as u64;
             if ss.tracetime {

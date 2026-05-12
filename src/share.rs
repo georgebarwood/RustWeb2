@@ -3,6 +3,7 @@ use rustdb::{GenTransaction, Transaction};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot};
+use pdf_min::{Writer, writer::Fetcher, image::{ImageSpec,Image}};
 
 /// Global shared state.
 pub struct SharedState {
@@ -211,9 +212,10 @@ impl SharedState {
                 })
                 .await;
             }
+            /*
             if ext.to_pdf {
-                trans.convert_to_pdf();
-            }
+                trans.convert_to_pdf().await;
+            } */
         }
         trans.x.set_extension(ext);
         trans
@@ -264,17 +266,28 @@ impl Trans {
         result
     }
 
-    fn convert_to_pdf(&mut self) {
-        let source = &self.x.rp.output;
-        let mut w = pdf_min::Writer::default();
-        pdf_min::html(&mut w, source);
-        w.finish();
-        self.x.rp.output = w.b.b;
-    /*
-        let source = str::from_utf8( &self.x.rp.output ).unwrap();
-        self.x.rp.output = ironpress::html_to_pdf(source).unwrap();
-    */
-    
+    pub fn is_convert_to_pdf(&mut self)-> bool
+    {
+        let mut result = false;
+        let ext = self.x.get_extension();
+        if let Some(ext) = ext.downcast_ref::<TransExt>() {
+           result = ext.to_pdf;
+        }
+        self.x.set_extension(ext);
+        result
+    }
+
+    pub async fn convert_to_pdf(&mut self) {
+        let source = std::mem::take(&mut self.x.rp.output);
+        let task = tokio::task::spawn_blocking(move || {
+            let mut w = pdf_min::Writer::default();
+            w.fetcher = Some(Box::new(MyFetcher::new()));
+            pdf_min::html(&mut w, &source);
+            w.finish();
+            w.b.b
+            });
+        let pdf = task.await.unwrap();
+        self.x.rp.output = pdf;
     }
 
     pub fn no_log(&mut self) -> bool {
@@ -374,4 +387,60 @@ impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, "{}", self.code)
     }
+}
+
+struct MyFetcher
+{
+}
+
+impl MyFetcher {
+    fn new() -> Self
+    {
+        Self{}
+    }
+}
+
+impl Fetcher for MyFetcher
+{
+    fn image(&mut self, w: &mut Writer, name: &str) -> Image {         
+       let file_bytes = reqwest::blocking::get(name)
+         .unwrap().bytes().unwrap();
+
+       bytes_to_image( w, &file_bytes )
+    }
+}
+
+fn bytes_to_image( w: &mut Writer, file_bytes: &[u8] ) -> Image
+{
+   // Use jpeg_decoder::Decoder to get jpg info ( color space, bits_per_component, width, height ).
+   let mut decoder = jpeg_decoder::Decoder::new(std::io::Cursor::new(file_bytes));
+   decoder.read_info().unwrap();
+   let info = decoder.info().unwrap();
+
+   use jpeg_decoder::{PixelFormat};
+   
+   let color_space: &[u8] = match info.pixel_format {
+       PixelFormat::RGB24 => b"/DeviceRGB",
+       PixelFormat::CMYK32 => b"/DeviceCMYK",
+       PixelFormat::L8 | PixelFormat::L16 => b"/DeviceGray",
+   };
+
+   let bits_per_component = match info.pixel_format {
+       PixelFormat::L16 => 16,
+       _ => 8
+   };
+
+   // Make the ImageSpec.
+   use pdf_min::Px;
+   let ims = ImageSpec {
+       data: file_bytes,
+       width: info.width as Px,
+       height: info.height as Px,
+       color_space,
+       bits_per_component,
+       other: b"/Filter/DCT",
+   };
+   
+   // Make the PDF Image from the ImageSpec.
+   Image::new(&ims, &mut w.b)
 }
