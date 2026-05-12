@@ -218,6 +218,13 @@ impl SharedState {
         trans.x.set_extension(ext);
         trans
     }
+
+    pub fn terminate( &self, code: i64 )
+    {
+       self.spd.shutdown();
+       println!("Terminating code = {}", code);
+       std::process::exit(code as i32)
+    }
 }
 
 /// Transaction to be processed.

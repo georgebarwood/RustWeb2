@@ -15,6 +15,7 @@ pub fn get_bmap() -> BuiltinMap {
         ("ARGON", DataKind::Binary, CompileFunc::Value(c_argon)),
         ("EMAILTX", DataKind::Int, CompileFunc::Int(c_email_tx)),
         ("SLEEP", DataKind::Int, CompileFunc::Int(c_sleep)),
+        ("SHUTDOWN", DataKind::Int, CompileFunc::Int(c_shutdown)),
         ("SETDOS", DataKind::Int, CompileFunc::Int(c_setdos)),
         ("TRANSWAIT", DataKind::Int, CompileFunc::Int(c_trans_wait)),
         ("TRANSFLUSH", DataKind::Int, CompileFunc::Int(c_trans_flush)),
@@ -82,6 +83,32 @@ impl CExp<i64> for Sleep {
         let mut ext = ee.tr.get_extension();
         if let Some(ext) = ext.downcast_mut::<TransExt>() {
             ext.sleep = if to <= 0 { 1 } else { to as u64 };
+        }
+        ee.tr.set_extension(ext);
+        0
+    }
+}
+
+/// Compile call to SHUTDOWN.
+fn c_shutdown(b: &Block, args: &mut [Expr]) -> CExpPtr<i64> {
+    check_types(b, args, &[DataKind::Int]);
+    let code = c_int(b, &mut args[0]);
+    lbox!(Shutdown { code })
+}
+
+/// Compiled call to SLEEP
+struct Shutdown {
+    code: CExpPtr<i64>,
+}
+impl CExp<i64> for Shutdown {
+    fn eval(&self, ee: &mut EvalEnv, d: &[u8]) -> i64 {
+        let code = self.code.eval(ee, d);
+        let mut ext = ee.tr.get_extension();
+        if let Some(ext) = ext.downcast_mut::<TransExt>() {
+            if let Some(ss) = &ext.ss
+            {
+                ss.terminate(code);
+            }
         }
         ee.tr.set_extension(ext);
         0

@@ -11,17 +11,11 @@ use tokio::sync::{broadcast, mpsc};
 static GLOBAL_ALLOC: rustdb::alloc::Perm = rustdb::alloc::Perm;
 
 // #[global_allocator]
-// static ALLOC: numalloc::NumaAlloc = numalloc::NumaAlloc::new();
+// static ALLOC: numalloc::NumaAlloc = numalloc::NumaAllo
 
 /// Program entry point
-fn main() {
-    main_inner();
-    std::thread::sleep(std::time::Duration::from_millis(10));
-    println!("Server stopped");
-}
-
-/// Read args, construct shared state, start async tasks, process requests
-fn main_inner() {
+fn main()
+{
     // Read program arguments.
     let args = Args::parse();
     let listen = format!("{}:{}", args.ip, args.port);
@@ -47,7 +41,6 @@ fn main_inner() {
     // SharedPagedData allows for one writer and multiple readers.
     // Note that readers never have to wait, they get a "virtual" read-only copy of the database.
     let spd = SharedPagedData::new_from_ps(ps);
-    let spdc = spd.clone();
 
     // Set the stash memory limit.
     spd.stash.lock().unwrap().mem_limit = args.mem << 20;
@@ -144,23 +137,22 @@ fn main_inner() {
                         if let Err(x) = request::process(stream, src.ip().to_string(), ssc).await {
                             println!("End request process error={:?}", x);
                         }
-                    });
+                    });  
                 }
                 _ = tokio::signal::ctrl_c() =>
                 {
                     println!("Processing of new http requests stopped by ctrl-C signal - stopping");
-                    break;
+                    ss.terminate(1);
                 }
                 _ = term() =>
                 {
                     println!("Processing of new http requests stopped by signal - stopping");
-                    break;
+                    ss.terminate(1);
                 }
 
             }
         }
     });
-    spdc.shutdown();
 }
 
 /// Append compressed, serialised transaction to log.Transaction table
