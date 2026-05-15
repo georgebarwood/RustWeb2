@@ -281,7 +281,7 @@ impl Trans {
         let source = std::mem::take(&mut self.x.rp.output);
         let task = tokio::task::spawn_blocking(move || {
             let mut w = pdf_min::Writer::default();
-            w.fetcher = Some(Box::new(MyFetcher::new()));
+            w.fetcher = Some(Box::new(MyFetcher));
             pdf_min::html(&mut w, &source);
             w.finish();
             w.b.b
@@ -389,28 +389,29 @@ impl core::fmt::Display for Error {
     }
 }
 
-struct MyFetcher
-{
-}
-
-impl MyFetcher {
-    fn new() -> Self
-    {
-        Self{}
-    }
-}
+struct MyFetcher;
 
 impl Fetcher for MyFetcher
 {
-    fn image(&mut self, w: &mut Writer, name: &str) -> Image {         
-       let file_bytes = reqwest::blocking::get(name)
-         .unwrap().bytes().unwrap();
-
-       bytes_to_image( w, &file_bytes )
+    fn image(&mut self, w: &mut Writer, name: &str) -> Image { 
+       let resp = reqwest::blocking::get(name).unwrap();
+       let ct = resp.headers().get(reqwest::header::CONTENT_TYPE).unwrap();
+       println!("ct={:?}", ct);
+       let image_kind = match ct.as_bytes()
+       {
+           b"image/jpeg" => 1,
+           _ => panic!()
+       };
+       let bytes = resp.bytes().unwrap();
+       match image_kind
+       {
+           1 => jpg_to_image( w, &bytes ),
+           _ => panic!()
+       }
     }
 }
 
-fn bytes_to_image( w: &mut Writer, file_bytes: &[u8] ) -> Image
+fn jpg_to_image( w: &mut Writer, file_bytes: &[u8] ) -> Image
 {
    // Use jpeg_decoder::Decoder to get jpg info ( color space, bits_per_component, width, height ).
    let mut decoder = jpeg_decoder::Decoder::new(std::io::Cursor::new(file_bytes));
