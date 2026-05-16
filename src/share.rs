@@ -3,7 +3,6 @@ use rustdb::{GenTransaction, Transaction};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot};
-use pdf_min::{Writer, writer::Fetcher, image::{ImageSpec,Image}};
 
 /// Global shared state.
 pub struct SharedState {
@@ -281,7 +280,7 @@ impl Trans {
         let source = std::mem::take(&mut self.x.rp.output);
         let task = tokio::task::spawn_blocking(move || {
             let mut w = pdf_min::Writer::default();
-            w.fetcher = Some(Box::new(MyFetcher));
+            w.fetcher = Some(Box::new(PdfFetcher));
             pdf_min::html(&mut w, &source);
             w.finish();
             w.b.b
@@ -384,14 +383,16 @@ impl From<serde_urlencoded::de::Error> for Error {
 impl std::error::Error for Error {}
 
 impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(f, "{}", self.code)
     }
 }
 
-struct MyFetcher;
+struct PdfFetcher;
 
-impl Fetcher for MyFetcher
+use pdf_min::{ Writer, image::{ Image, ImageSpec } };
+
+impl pdf_min::writer::Fetcher for PdfFetcher
 {
     fn image(&mut self, w: &mut Writer, name: &str) -> Image { 
        let resp = reqwest::blocking::get(name).unwrap();
